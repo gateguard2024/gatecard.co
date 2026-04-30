@@ -174,7 +174,7 @@ export default function ResidentDashboard() {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // TODO Sprint 2: read role from Supabase auth session
-  const role: 'resident' | 'admin' = 'resident'
+  const role = 'resident' as 'resident' | 'admin'
 
   useEffect(() => {
     if (!siteSlug) return
