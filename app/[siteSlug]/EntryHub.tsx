@@ -97,10 +97,10 @@ export default function EntryHub({ site }: Props) {
 
         {/* Property name over banner */}
         <div className="absolute bottom-0 left-0 right-0 px-5 pb-4">
-          <p className="text-xs font-semibold text-white opacity-60 tracking-widest uppercase mb-0.5">
+          <p className="gc-label text-white mb-1" style={{ opacity: 0.5 }}>
             Welcome to
           </p>
-          <h1 className="text-2xl font-bold text-white leading-tight">
+          <h1 className="text-2xl font-semibold text-white leading-tight" style={{ letterSpacing: "-0.01em" }}>
             {site.name}
           </h1>
         </div>
@@ -150,7 +150,7 @@ export default function EntryHub({ site }: Props) {
       <main className="flex-1 flex flex-col gap-3 px-4 py-4">
 
         <p
-          className="text-xs font-semibold uppercase tracking-widest mb-1"
+          className="gc-label mb-1"
           style={{ color: 'var(--gc-text-muted)' }}
         >
           How can we help you today?
@@ -214,9 +214,17 @@ export default function EntryHub({ site }: Props) {
 
       {/* ── Footer ────────────────────────────────────────────── */}
       <footer
-        className="flex flex-col gap-3 px-5 py-4"
+        className="flex flex-col gap-2.5 px-5 py-4"
         style={{ borderTop: '1px solid var(--gc-border)' }}
       >
+        {/* Tagline */}
+        <p
+          className="text-center gc-label"
+          style={{ letterSpacing: '0.18em', color: 'var(--gc-gold)', opacity: 0.75 }}
+        >
+          Your whole community. One experience.
+        </p>
+
         <div className="flex items-center justify-center gap-3">
           <button
             className="text-xs"
@@ -248,7 +256,7 @@ export default function EntryHub({ site }: Props) {
             {time} · {date}
           </span>
           <div className="flex items-center gap-1.5">
-            <CheckCircle2 size={12} style={{ color: 'var(--gc-text-muted)' }} />
+            <CheckCircle2 size={12} style={{ color: 'var(--gc-gold)', opacity: 0.6 }} />
             <span className="text-xs" style={{ color: 'var(--gc-text-muted)' }}>
               Secured by GateGuard
             </span>

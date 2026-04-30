@@ -1,9 +1,17 @@
 import type { Metadata, Viewport } from 'next'
+import { Montserrat } from 'next/font/google'
 import './globals.css'
+
+const montserrat = Montserrat({
+  subsets: ['latin'],
+  variable: '--font-montserrat',
+  weight: ['200', '300', '400', '500', '600', '700'],
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'GateCard',
-  description: 'Visitor access for your community',
+  description: 'Your whole community. One experience.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -22,7 +30,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={montserrat.variable}>
       <body>{children}</body>
     </html>
   )
