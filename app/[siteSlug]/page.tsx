@@ -11,7 +11,7 @@ export default async function SitePage({ params }: Props) {
 
   const { data: site } = await supabase
     .from('sites')
-    .select('id, slug, name, address, city, state, active')
+    .select('id, slug, name, address, city, state, cover_image_url, active')
     .eq('slug', siteSlug)
     .eq('active', true)
     .single()
