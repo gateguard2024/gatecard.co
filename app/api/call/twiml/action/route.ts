@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import twilio from 'twilio'
 import { supabaseAdmin } from '@/lib/supabase'
+import { unlockDoor } from '@/lib/ubiquiti'
 
 const { VoiceResponse } = twilio.twiml
 
@@ -20,21 +21,23 @@ export async function POST(req: NextRequest) {
   if (digit === '1') {
     // ── Open the gate ──────────────────────────────────────────────────────
     try {
-      // Resolve site → Brivo IDs
+      // Resolve site → hardware IDs (Brivo or Ubiquiti)
       const { data: site } = await db
         .from('sites')
-        .select('brivo_account_id, brivo_access_point_id')
+        .select('brivo_account_id, brivo_access_point_id, ubiquiti_controller_url, ubiquiti_controller_token, ubiquiti_door_id')
         .eq('slug', siteSlug)
         .single()
 
+      let opened = false
+
+      // ── Brivo path ────────────────────────────────────────────────────────
       if (site?.brivo_account_id && site?.brivo_access_point_id) {
-        // Call the portal's Brivo open endpoint (auth via shared secret)
         const gateRes = await fetch(
           `${process.env.GATEGUARD_PORTAL_URL}/api/brivo/open`,
           {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
+              'Content-Type':      'application/json',
               'x-internal-secret': process.env.GATEGUARD_API_SECRET ?? '',
             },
             body: JSON.stringify({
@@ -45,29 +48,30 @@ export async function POST(req: NextRequest) {
             }),
           }
         )
-
         if (gateRes.ok) {
-          await db
-            .from('access_events')
-            .update({ outcome: 'gate_opened', updated_at: new Date().toISOString() })
-            .eq('id', eventId)
-
-          response.say(
-            { voice: 'Polly.Joanna' },
-            'Gate is opening now. Welcome.'
-          )
+          opened = true
         } else {
-          throw new Error(`Gate open failed: ${gateRes.status}`)
+          console.error('[twiml/action] Brivo open failed:', gateRes.status)
         }
-      } else {
-        // Site not fully configured — log and still say opening
-        await db
-          .from('access_events')
-          .update({ outcome: 'gate_opened', updated_at: new Date().toISOString() })
-          .eq('id', eventId)
-
-        response.say({ voice: 'Polly.Joanna' }, 'Gate is opening now. Welcome.')
       }
+
+      // ── Ubiquiti path (fallback or primary for Ubiquiti-only sites) ───────
+      if (!opened && site?.ubiquiti_controller_url && site?.ubiquiti_controller_token && site?.ubiquiti_door_id) {
+        await unlockDoor(
+          site.ubiquiti_controller_url,
+          site.ubiquiti_controller_token,
+          site.ubiquiti_door_id,
+        )
+        opened = true
+      }
+
+      await db
+        .from('access_events')
+        .update({ outcome: 'gate_opened', updated_at: new Date().toISOString() })
+        .eq('id', eventId)
+
+      response.say({ voice: 'Polly.Joanna' }, 'Gate is opening now. Welcome.')
+
     } catch (err) {
       console.error('[twiml/action] gate open error', err)
       response.say({ voice: 'Polly.Joanna' }, 'The gate is opening. Welcome.')

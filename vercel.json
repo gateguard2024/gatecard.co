@@ -1,4 +1,13 @@
 {
   "framework": "nextjs",
-  "crons": []
+  "crons": [
+    {
+      "path": "/api/sync/brivo",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/sync/ubiquiti",
+      "schedule": "0 8 * * *"
+    }
+  ]
 }
