@@ -96,7 +96,25 @@ export async function listCloudDevices(hostIds?: string[]): Promise<UiDevice[]> 
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Local: UniFi Access controller API (per-site, read+write)
+//
+// Local UniFi controllers use self-signed TLS certs by default.
+// Set UBIQUITI_ALLOW_SELF_SIGNED=true in Vercel env vars to bypass cert
+// verification for on-prem controllers (safe — these are LAN-only calls
+// routed via VPN/Tailscale, never over the public internet).
 // ─────────────────────────────────────────────────────────────────────────────
+
+import https from 'https'
+
+/** Build a Node https.Agent that optionally skips TLS cert verification */
+function localAgent(): https.Agent {
+  const allowSelfSigned = process.env.UBIQUITI_ALLOW_SELF_SIGNED === 'true'
+  return new https.Agent({ rejectUnauthorized: !allowSelfSigned })
+}
+
+/** fetch() wrapper that injects the https agent for local controller calls */
+function localFetch(url: string, init: RequestInit): Promise<Response> {
+  return fetch(url, { ...init, agent: localAgent() } as unknown as RequestInit)
+}
 
 /**
  * Unlock a door via the local UniFi Access controller.
@@ -114,17 +132,13 @@ export async function unlockDoor(
 ): Promise<void> {
   const url = `${controllerUrl.replace(/\/$/, '')}/proxy/access/api/v2/device/${doorId}/unlocksync`
 
-  const res = await fetch(url, {
+  const res = await localFetch(url, {
     method: 'PUT',
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type':  'application/json',
     },
     body: JSON.stringify({ duration: durationMs }),
-    // Self-signed cert on local controller — skip TLS verification in Node
-    // (Next.js server-side fetch goes through Node's native fetch / undici)
-    // @ts-expect-error undici rejectUnauthorized extension
-    dispatcher: new (require('undici').Agent)({ connect: { rejectUnauthorized: false } }),
   })
 
   if (!res.ok) {
@@ -143,13 +157,11 @@ export async function getDoorStatus(
 ): Promise<AccessDeviceStatus> {
   const url = `${controllerUrl.replace(/\/$/, '')}/proxy/access/api/v2/device/${doorId}`
 
-  const res = await fetch(url, {
+  const res = await localFetch(url, {
     headers: {
       'Authorization': `Bearer ${token}`,
       'Accept':        'application/json',
     },
-    // @ts-expect-error undici self-signed cert bypass
-    dispatcher: new (require('undici').Agent)({ connect: { rejectUnauthorized: false } }),
   })
 
   if (!res.ok) throw new Error(`getDoorStatus failed: ${res.status}`)
@@ -166,13 +178,11 @@ export async function listLocalDevices(
 ): Promise<AccessDeviceStatus[]> {
   const url = `${controllerUrl.replace(/\/$/, '')}/proxy/access/api/v2/device`
 
-  const res = await fetch(url, {
+  const res = await localFetch(url, {
     headers: {
       'Authorization': `Bearer ${token}`,
       'Accept':        'application/json',
     },
-    // @ts-expect-error undici self-signed cert bypass
-    dispatcher: new (require('undici').Agent)({ connect: { rejectUnauthorized: false } }),
   })
 
   if (!res.ok) throw new Error(`listLocalDevices failed: ${res.status}`)
