@@ -85,24 +85,13 @@ export default function EntryHub({ site }: Props) {
           }}
         />
 
-        {/* GateCard wordmark */}
-        <div className="absolute top-4 left-4 flex items-center gap-2">
-          <div
-            className="flex items-center justify-center rounded-lg"
-            style={{
-              width: 28, height: 28,
-              background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
-              boxShadow: '0 2px 8px rgba(37,99,235,0.4)',
-            }}
-          >
-            <svg width="15" height="15" viewBox="0 0 18 18" fill="none">
-              <rect x="2" y="2" width="14" height="14" rx="2" stroke="white" strokeWidth="1.5"/>
-              <path d="M9 2v14M2 9h14" stroke="white" strokeWidth="1.5"/>
-            </svg>
-          </div>
-          <span className="text-xs font-bold text-white tracking-widest opacity-90">
-            GATECARD
-          </span>
+        {/* GateGuard logo */}
+        <div className="absolute top-4 left-4">
+          <img
+            src="/logo.png"
+            alt="GateGuard"
+            style={{ height: 44, width: 'auto', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))' }}
+          />
         </div>
 
         {/* Property name over banner */}
