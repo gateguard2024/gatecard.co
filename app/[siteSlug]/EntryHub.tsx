@@ -53,6 +53,7 @@ export default function EntryHub({ site }: Props) {
             src={site.cover_image_url}
             alt={site.name}
             className="w-full h-full object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
           />
         ) : (
           /* Gradient fallback */
