@@ -6,19 +6,24 @@ export async function GET() {
   const url  = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  // Test the query directly
-  const { data, error } = await supabase
-    .from('sites')
-    .select('id, slug, name, active')
-    .limit(5)
+  // Try sites table
+  const sites = await supabase.from('sites').select('*').limit(3)
+
+  // Try residents table
+  const residents = await supabase.from('residents').select('*').limit(3)
+
+  // Try properties table (in case portal uses different name)
+  const properties = await supabase.from('properties').select('*').limit(3)
 
   return NextResponse.json({
     env: {
-      url_set:  !!url,
-      url_prefix: url?.slice(0, 30) ?? 'MISSING',
-      anon_set: !!anon,
+      url_set:     !!url,
+      url_prefix:  url?.slice(0, 30) ?? 'MISSING',
+      anon_set:    !!anon,
       anon_prefix: anon?.slice(0, 20) ?? 'MISSING',
     },
-    query: { data, error },
+    sites:      { data: sites.data,      error: sites.error },
+    residents:  { data: residents.data,  error: residents.error },
+    properties: { data: properties.data, error: properties.error },
   })
 }
