@@ -1,8 +1,38 @@
 # GateCard — Agent Context
 
-## What this is
-GateCard is the visitor portal and resident app for GateGuard properties.
-Live at gatecard.co. Companion to portal.gateguard.co (SOC dashboard).
+## APPLICATION LANDSCAPE (read this first — get it right every time)
+
+GateGuard runs four distinct applications. Never confuse them.
+
+| App | URL | Repo | Purpose |
+|-----|-----|------|---------|
+| SOC Operations | ggsoc.com | gateguard-dispatch-ui | Call center for SOC staff. Live production. DO NOT BREAK. |
+| Visitor Kiosk (legacy) | stonegate-visitor.vercel.app | (separate) | Single-property Brivo+Twilio kiosk. Being replaced by gatecard.co. No new features. |
+| GateCard | gatecard.co | gatecard.co (THIS REPO) | Multi-tenant visitor/resident kiosk. Replaces stonegate. |
+| Dealer Portal | portal.gateguard.co | gateguard-portal | Dealer ops + field tech tool. Equipment library, KB, AI diagnostic. |
+
+---
+
+## THIS REPO — gatecard.co
+
+**Who uses it:** Visitors, residents, and leasing staff at multifamily properties. NOT dealers. NOT SOC agents.
+
+**Relationship to other apps:**
+- Companion to **ggsoc.com** (SOC monitors events from gatecard.co)
+- Companion to **portal.gateguard.co** (dealers configure properties; gatecard.co calls portal for Brivo gate opens)
+- **NOT** the SOC dashboard — that is ggsoc.com
+
+**Multi-site architecture:** One deployment serves all properties. Site is identified by `siteSlug` in the URL path (`/parkview`, `/stonegate`). Residents and staff of one property never see another property's data. Feature flags are stored in `features jsonb` on the `sites` table — each property enables only the modules they pay for.
+
+**Integration tiers:**
+- **Tier 1 (Brivo + Twilio):** Mirrors stonegate-visitor.vercel.app exactly. Visitor calls resident, resident presses 1, Brivo opens gate.
+- **Tier 2 (Ubiquiti callbox):** Sync device database with Ubiquiti. Ubiquiti callbox triggers the same Twilio/Brivo flow via webhook.
+
+## What does NOT belong here
+- SOC monitoring, alarm feeds, camera dashboards → ggsoc.com
+- Equipment library, PDF manuals, AI diagnostic wizard → portal.gateguard.co
+- Dealer CRM, quotes, work orders → portal.gateguard.co
+- Field tech tool → portal.gateguard.co/tech
 
 ## Tech Stack
 - Next.js 16 App Router, TypeScript, React 19
