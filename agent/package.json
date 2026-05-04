@@ -1,0 +1,20 @@
+{
+  "name": "gatecard-unifi-sync-agent",
+  "version": "1.0.0",
+  "description": "On-site Pi agent: syncs Supabase residents → UniFi Access intercom directory",
+  "main": "sync-agent.js",
+  "scripts": {
+    "start":    "node sync-agent.js",
+    "dry-run":  "node sync-agent.js --dry-run",
+    "list":     "node sync-agent.js --list"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.3",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
