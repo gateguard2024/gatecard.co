@@ -4,11 +4,17 @@
  * UniFi Access local controller client for the Pi sync agent.
  * Plain Node.js — no build step, no TypeScript.
  *
- * Auth: local admin account on the controller (not UI.com SSO).
+ * Confirmed endpoints (verified on-site via DevTools, May 2026):
+ *   GET    /proxy/access/api/v2/callers/{templateId}/rooms          → list rooms
+ *   POST   /proxy/access/api/v2/callers/{templateId}/rooms/receivers → create room
+ *   DELETE /proxy/access/api/v2/callers/{templateId}/rooms/{roomId} → delete room
+ *   (Update = delete + recreate — no PATCH/PUT endpoint found)
+ *
+ * Auth: POST /api/auth/login → session cookie + X-CSRF-Token header.
  * TLS:  self-signed certs accepted (LAN-only, never internet-facing).
  *
- * ⚠ UNIFI_PAYLOAD_TODO: Confirm POST/PUT body shape on-site via DevTools.
- *   See upsertDirectoryEntry() below.
+ * The templateId per site is stored in sites.unifi_template_id in Supabase.
+ * Get it by running: GET /proxy/access/api/v2/templates on the controller.
  */
 
 'use strict'
@@ -29,12 +35,12 @@ async function localFetch(url, options = {}) {
 
 /**
  * Login to the local UniFi Access controller.
- * Returns a session object with cookie, csrfToken, and authToken.
+ * Returns a session object with cookie and csrfToken.
  *
- * @param {string} controllerUrl  e.g. "https://192.168.1.1"
+ * @param {string} controllerUrl  e.g. "https://192.168.26.33"
  * @param {string} username       Local admin username (NOT UI.com SSO)
  * @param {string} password       Local admin password
- * @returns {Promise<{cookie: string, csrfToken: string, authToken: string}>}
+ * @returns {Promise<{cookie: string, csrfToken: string}>}
  */
 async function login(controllerUrl, username, password) {
   const base = controllerUrl.replace(/\/$/, '')
@@ -51,118 +57,110 @@ async function login(controllerUrl, username, password) {
     throw new Error(`UniFi login failed (${res.status}): ${text.slice(0, 200)}`)
   }
 
-  // Extract cookie + CSRF token
+  // Extract session cookie and CSRF token from response headers
   const setCookie = res.headers.get('set-cookie') ?? ''
   const cookie    = setCookie.split(';')[0] ?? ''
   const csrfToken = res.headers.get('x-csrf-token') ?? ''
 
-  // Some firmware returns authToken in JSON body
-  let authToken = ''
-  try {
-    const json = await res.json()
-    authToken = json?.data?.authToken ?? json?.token ?? ''
-  } catch { /* cookie auth is sufficient */ }
+  if (!cookie) throw new Error('UniFi login: no session cookie returned')
 
-  return { cookie, csrfToken, authToken }
+  return { cookie, csrfToken }
 }
 
 // ─── Auth headers ─────────────────────────────────────────────────────────────
 
 function authHeaders(session) {
-  const headers = { Accept: 'application/json' }
-  if (session.cookie)    headers['Cookie']        = session.cookie
-  if (session.csrfToken) headers['X-CSRF-Token']  = session.csrfToken
-  if (session.authToken) headers['Authorization'] = `Bearer ${session.authToken}`
-  return headers
-}
-
-// ─── Directory entry normalizer ───────────────────────────────────────────────
-
-function normalize(raw) {
-  const phones = raw?.phone_numbers ?? raw?.phones ?? []
   return {
-    id:          String(raw?.id ?? raw?._id ?? ''),
-    name:        raw?.name ?? '',
-    dial_number: String(raw?.dial_number ?? raw?.dialNumber ?? raw?.room ?? ''),
-    phone:       phones[0]?.phone ?? phones[0]?.number ?? raw?.phone ?? null,
+    Accept:          'application/json',
+    Cookie:          session.cookie,
+    'X-CSRF-Token':  session.csrfToken,
   }
 }
 
 // ─── Directory API ────────────────────────────────────────────────────────────
 
 /**
- * List all current intercom directory entries.
+ * List all intercom directory rooms for a template.
  *
  * @param {string} controllerUrl
- * @param {object} session  From login()
- * @returns {Promise<Array<{id, name, dial_number, phone}>>}
+ * @param {object} session     From login()
+ * @param {string} templateId  sites.unifi_template_id
+ * @returns {Promise<Array<{id, name, room}>>}
+ *   id   = UniFi room UUID (maps to residents.unifi_directory_id)
+ *   name = display name shown on call box
+ *   room = unit/dial number
  */
-async function listDirectoryEntries(controllerUrl, session) {
-  const url = `${controllerUrl.replace(/\/$/, '')}/proxy/access/api/v2/user`
+async function listDirectoryEntries(controllerUrl, session, templateId) {
+  const base = controllerUrl.replace(/\/$/, '')
+  const url  = `${base}/proxy/access/api/v2/callers/${templateId}/rooms?page_num=1&page_size=1000`
 
   const res = await localFetch(url, { headers: authHeaders(session) })
-
   if (!res.ok) throw new Error(`listDirectoryEntries failed: ${res.status}`)
+
   const json = await res.json()
-  const raw  = json?.data ?? json ?? []
-  return Array.isArray(raw) ? raw.map(normalize) : []
+  const rooms = json?.data ?? []
+
+  return rooms.map(r => ({
+    id:   r.id,
+    name: r.name  ?? '',
+    room: r.room  ?? '',  // dial/unit number
+  }))
 }
 
 /**
- * Create or update a directory entry.
+ * Create a new intercom directory room entry.
  *
  * @param {string} controllerUrl
- * @param {object} session         From login()
- * @param {object} entry           { id?, name, dial_number, phone }
- *   - Omit id to create new; provide id to update existing.
- *
- * ⚠ UNIFI_PAYLOAD_TODO:
- *   Confirm exact field names on-site by watching DevTools Network tab while
- *   adding/editing a directory entry in the UniFi Access web UI.
- *   Current shape is based on the community Python bulk-import script.
- *   Fields to verify: name, dial_number, phone_numbers[].phone
- *
- * @returns {Promise<{id, name, dial_number, phone}>}
+ * @param {object} session     From login()
+ * @param {string} templateId  sites.unifi_template_id
+ * @param {object} entry       { name, room, phone }
+ * @returns {Promise<{id, name, room}>}
  */
-async function upsertDirectoryEntry(controllerUrl, session, entry) {
-  const base  = controllerUrl.replace(/\/$/, '')
-  const isNew = !entry.id
-  const url   = isNew
-    ? `${base}/proxy/access/api/v2/user`
-    : `${base}/proxy/access/api/v2/user/${entry.id}`
+async function createDirectoryEntry(controllerUrl, session, templateId, { name, room, phone }) {
+  const base = controllerUrl.replace(/\/$/, '')
+  const url  = `${base}/proxy/access/api/v2/callers/${templateId}/rooms/receivers`
 
-  // ⚠ UNIFI_PAYLOAD_TODO: verify these field names on-site
   const payload = {
-    name:          entry.name,
-    dial_number:   entry.dial_number,
-    phone_numbers: entry.phone ? [{ phone: entry.phone }] : [],
+    name,
+    room:              String(room ?? ''),
+    disable_directory: false,
+    number_check:      true,
+    receiver_groups:   [{
+      viewers:      [],
+      admins:       [],
+      chimes:       [],
+      phone_numbers: phone ? [String(phone)] : [],
+    }],
   }
 
   const res = await localFetch(url, {
-    method:  isNew ? 'POST' : 'PUT',
+    method:  'POST',
     headers: { ...authHeaders(session), 'Content-Type': 'application/json' },
     body:    JSON.stringify(payload),
   })
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`upsertDirectoryEntry failed (${res.status}): ${text.slice(0, 300)}`)
+    throw new Error(`createDirectoryEntry failed (${res.status}): ${text.slice(0, 300)}`)
   }
 
   const json = await res.json()
-  return normalize(json?.data ?? json)
+  const d    = json?.data ?? json
+  return { id: d.id, name: d.name, room: d.room }
 }
 
 /**
- * Delete a directory entry by its UniFi ID.
+ * Delete an intercom directory room entry by its UniFi room ID.
  * 404s are silently ignored (already gone).
  *
  * @param {string} controllerUrl
- * @param {object} session  From login()
- * @param {string} unifiId
+ * @param {object} session     From login()
+ * @param {string} templateId  sites.unifi_template_id
+ * @param {string} roomId      The room's UniFi UUID
  */
-async function deleteDirectoryEntry(controllerUrl, session, unifiId) {
-  const url = `${controllerUrl.replace(/\/$/, '')}/proxy/access/api/v2/user/${unifiId}`
+async function deleteDirectoryEntry(controllerUrl, session, templateId, roomId) {
+  const base = controllerUrl.replace(/\/$/, '')
+  const url  = `${base}/proxy/access/api/v2/callers/${templateId}/rooms/${roomId}`
 
   const res = await localFetch(url, {
     method:  'DELETE',
@@ -179,6 +177,6 @@ async function deleteDirectoryEntry(controllerUrl, session, unifiId) {
 module.exports = {
   login,
   listDirectoryEntries,
-  upsertDirectoryEntry,
+  createDirectoryEntry,
   deleteDirectoryEntry,
 }

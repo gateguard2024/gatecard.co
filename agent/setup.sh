@@ -141,16 +141,16 @@ TimeoutStartSec=300
 Restart=no
 EOF
 
-# ─── 8. Systemd timer (runs at :30 past 0h, 6h, 12h, 18h) ───────────────────
+# ─── 8. Systemd timer (runs daily at 00:30) ──────────────────────────────────
 
 cat > "/etc/systemd/system/${SERVICE_NAME}.timer" <<EOF
 [Unit]
-Description=GateCard UniFi Sync — every 6 hours at :30
+Description=GateCard UniFi Sync — daily at 00:30
 Documentation=https://github.com/your-org/gatecard.co
 
 [Timer]
-# 00:30, 06:30, 12:30, 18:30 — 30 min after Vercel's Brivo cron (:00)
-OnCalendar=*-*-* 00,06,12,18:30:00
+# 00:30 daily — 30 min after Vercel's Brivo cron (:00) so Supabase is fresh
+OnCalendar=*-*-* 00:30:00
 Persistent=true
 RandomizedDelaySec=60
 

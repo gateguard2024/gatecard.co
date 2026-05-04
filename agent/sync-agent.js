@@ -6,8 +6,8 @@
  * Supabase residents  ──▶  UniFi Access intercom directory
  *
  * Schedule (systemd timer, set in setup.sh):
- *   Runs at :30 past 0h, 6h, 12h, 18h — always 30 minutes AFTER the
- *   Vercel Brivo cron (which runs at :00) so Supabase is always fresh.
+ *   Runs once daily at 00:30 — after the Vercel Brivo cron refreshes Supabase.
+ *   Can also be triggered manually at any time.
  *
  * Usage:
  *   node sync-agent.js            # run once and exit (used by systemd)
@@ -20,6 +20,14 @@
  *   SUPABASE_SERVICE_ROLE_KEY
  *   SITE_SLUG          (optional — restrict to one site)
  *   LOG_LEVEL          (optional — "debug" for verbose output)
+ *
+ * UniFi directory model (confirmed on-site May 2026):
+ *   Each site has a "template" (intercom config) stored in sites.unifi_template_id.
+ *   Directory entries are "rooms" within that template.
+ *   List:   GET    /proxy/access/api/v2/callers/{templateId}/rooms
+ *   Create: POST   /proxy/access/api/v2/callers/{templateId}/rooms/receivers
+ *   Delete: DELETE /proxy/access/api/v2/callers/{templateId}/rooms/{roomId}
+ *   Update: delete + recreate (no PATCH/PUT endpoint available)
  */
 
 'use strict'
@@ -52,11 +60,10 @@ function ts()            { return new Date().toISOString() }
 
 /**
  * Format resident name for the call box display.
- * Matches the existing display_name format: "Smith, J."
- * Falls back to display_name from DB if set, otherwise builds it.
+ * Uses display_name from DB if set, otherwise falls back to unit number.
  */
 function formatName(resident) {
-  return resident.display_name || `${resident.unit_number}`
+  return resident.display_name || `Unit ${resident.unit_number}`
 }
 
 // ─── Core sync logic ──────────────────────────────────────────────────────────
@@ -67,10 +74,11 @@ function formatName(resident) {
  * Strategy:
  *   - residents.unifi_directory_id is the stable link between Supabase and UniFi.
  *   - New residents (no unifi_directory_id) → CREATE in UniFi → store returned ID
- *   - Existing residents (has unifi_directory_id) → check if name/phone changed → UPDATE if so
- *   - UniFi entries with no matching active resident → DELETE from UniFi
+ *   - Existing residents → check if name/room changed → DELETE + CREATE if so
+ *   - UniFi rooms with no matching active resident → DELETE from UniFi
  *
- * @param {object} site  { id, slug, name, unifi_controller_url, unifi_local_username, unifi_local_password }
+ * @param {object} site  { id, slug, name, unifi_controller_url, unifi_local_username,
+ *                         unifi_local_password, unifi_template_id }
  * @param {boolean} dryRun  If true, log diffs but don't write to UniFi
  * @returns {Promise<{added, updated, deleted, skipped, error, status}>}
  */
@@ -79,6 +87,18 @@ async function syncSite(site, dryRun = false) {
   const stats = { added: 0, updated: 0, deleted: 0, skipped: 0, error: null, status: 'ok' }
 
   log(`[${site.slug}] Starting sync — controller: ${site.unifi_controller_url}`)
+
+  if (!site.unifi_template_id) {
+    const msg = `Site ${site.slug} has no unifi_template_id — set it in Supabase sites table`
+    err(`[${site.slug}] ${msg}`)
+    stats.error  = msg
+    stats.status = 'error'
+    stats.durationMs = Date.now() - start
+    if (!dryRun) await supabase.writeSyncLog(site.id, stats)
+    return stats
+  }
+
+  const templateId = site.unifi_template_id
 
   try {
     // 1. Login to local controller
@@ -90,27 +110,27 @@ async function syncSite(site, dryRun = false) {
     )
     log(`[${site.slug}] ✓ Authenticated`)
 
-    // 2. Fetch current UniFi directory entries
-    const unifiEntries = await unifi.listDirectoryEntries(site.unifi_controller_url, session)
-    log(`[${site.slug}] UniFi directory: ${unifiEntries.length} entries`)
-    debug(`UniFi entries: ${JSON.stringify(unifiEntries, null, 2)}`)
+    // 2. Fetch current UniFi directory rooms
+    const rooms = await unifi.listDirectoryEntries(site.unifi_controller_url, session, templateId)
+    log(`[${site.slug}] UniFi directory: ${rooms.length} rooms`)
+    debug(`UniFi rooms: ${JSON.stringify(rooms, null, 2)}`)
 
-    // Build lookup: UniFi ID → entry
-    const unifiById = new Map(unifiEntries.map(e => [e.id, e]))
+    // Build lookup: UniFi room ID → room
+    const roomsById = new Map(rooms.map(r => [r.id, r]))
 
     // 3. Fetch active residents from Supabase
     const residents = await supabase.getActiveResidents(site.id)
     log(`[${site.slug}] Supabase residents: ${residents.length} with phone`)
     debug(`Residents: ${JSON.stringify(residents, null, 2)}`)
 
-    // Build set of UniFi IDs that should exist (mapped residents)
-    const expectedUnifiIds = new Set()
+    // Track which UniFi room IDs should exist after this sync
+    const expectedRoomIds = new Set()
 
     // 4. Process each resident — create or update
     for (const resident of residents) {
-      const name        = formatName(resident)
-      const dialNumber  = resident.unit_number ?? ''
-      const phone       = resident.phone ?? null
+      const name  = formatName(resident)
+      const room  = String(resident.unit_number ?? '')
+      const phone = resident.phone ?? null
 
       if (!phone) {
         debug(`[${site.slug}] Skipping ${name} — no phone number`)
@@ -119,25 +139,24 @@ async function syncSite(site, dryRun = false) {
       }
 
       if (resident.unifi_directory_id) {
-        // Resident already has a UniFi entry — check if it needs updating
-        expectedUnifiIds.add(resident.unifi_directory_id)
-        const existing = unifiById.get(resident.unifi_directory_id)
+        // Resident already has a UniFi room entry
+        const existing = roomsById.get(resident.unifi_directory_id)
 
         if (!existing) {
-          // UniFi entry is gone (maybe manually deleted) — recreate it
-          log(`[${site.slug}] Re-creating missing entry for ${name} (unit ${dialNumber})`)
+          // Room is gone from UniFi (manually deleted) — recreate it
+          log(`[${site.slug}] Re-creating missing room for ${name} (unit ${room})`)
           if (!dryRun) {
             try {
-              const created = await unifi.upsertDirectoryEntry(
-                site.unifi_controller_url, session,
-                { name, dial_number: dialNumber, phone }
+              const created = await unifi.createDirectoryEntry(
+                site.unifi_controller_url, session, templateId,
+                { name, room, phone }
               )
               await supabase.setResidentUnifiId(resident.id, created.id)
-              expectedUnifiIds.add(created.id)
+              expectedRoomIds.add(created.id)
               stats.added++
             } catch (e) {
               err(`[${site.slug}] Failed to recreate ${name}:`, e)
-              stats.error = e.message
+              stats.error  = e.message
               stats.status = 'partial'
             }
           } else {
@@ -147,27 +166,34 @@ async function syncSite(site, dryRun = false) {
           continue
         }
 
-        // Check if anything changed
-        const nameChanged  = existing.name        !== name
-        const phoneChanged = existing.phone       !== phone
-        const dialChanged  = existing.dial_number !== dialNumber
+        expectedRoomIds.add(resident.unifi_directory_id)
 
-        if (nameChanged || phoneChanged || dialChanged) {
-          log(`[${site.slug}] Updating ${name} (unit ${dialNumber})`)
-          debug(`  name: ${existing.name} → ${name}`)
-          debug(`  phone: ${existing.phone} → ${phone}`)
-          debug(`  dial: ${existing.dial_number} → ${dialNumber}`)
+        // Check if name or room number changed
+        const nameChanged = existing.name !== name
+        const roomChanged = existing.room !== room
+
+        if (nameChanged || roomChanged) {
+          log(`[${site.slug}] Updating ${name} (unit ${room})`)
+          if (nameChanged) debug(`  name: "${existing.name}" → "${name}"`)
+          if (roomChanged) debug(`  room: "${existing.room}" → "${room}"`)
 
           if (!dryRun) {
             try {
-              await unifi.upsertDirectoryEntry(
-                site.unifi_controller_url, session,
-                { id: resident.unifi_directory_id, name, dial_number: dialNumber, phone }
+              // No PATCH endpoint — delete old entry and create fresh one
+              await unifi.deleteDirectoryEntry(
+                site.unifi_controller_url, session, templateId, resident.unifi_directory_id
               )
+              const created = await unifi.createDirectoryEntry(
+                site.unifi_controller_url, session, templateId,
+                { name, room, phone }
+              )
+              await supabase.setResidentUnifiId(resident.id, created.id)
+              expectedRoomIds.delete(resident.unifi_directory_id)
+              expectedRoomIds.add(created.id)
               stats.updated++
             } catch (e) {
               err(`[${site.slug}] Failed to update ${name}:`, e)
-              stats.error = e.message
+              stats.error  = e.message
               stats.status = 'partial'
             }
           } else {
@@ -180,21 +206,21 @@ async function syncSite(site, dryRun = false) {
         }
 
       } else {
-        // New resident — create entry in UniFi
-        log(`[${site.slug}] Adding ${name} (unit ${dialNumber}, ${phone})`)
+        // New resident — create room entry in UniFi
+        log(`[${site.slug}] Adding ${name} (unit ${room}, ${phone})`)
 
         if (!dryRun) {
           try {
-            const created = await unifi.upsertDirectoryEntry(
-              site.unifi_controller_url, session,
-              { name, dial_number: dialNumber, phone }
+            const created = await unifi.createDirectoryEntry(
+              site.unifi_controller_url, session, templateId,
+              { name, room, phone }
             )
             await supabase.setResidentUnifiId(resident.id, created.id)
-            expectedUnifiIds.add(created.id)
+            expectedRoomIds.add(created.id)
             stats.added++
           } catch (e) {
             err(`[${site.slug}] Failed to add ${name}:`, e)
-            stats.error = e.message
+            stats.error  = e.message
             stats.status = 'partial'
           }
         } else {
@@ -204,40 +230,32 @@ async function syncSite(site, dryRun = false) {
       }
     }
 
-    // 5. Delete UniFi entries that have no matching active resident
-    for (const entry of unifiEntries) {
-      if (expectedUnifiIds.has(entry.id)) continue
+    // 5. Delete UniFi rooms that have no matching active resident
+    for (const room of rooms) {
+      if (expectedRoomIds.has(room.id)) continue
 
-      log(`[${site.slug}] Removing stale entry: "${entry.name}" (${entry.dial_number})`)
+      log(`[${site.slug}] Removing stale room: "${room.name}" (unit ${room.room})`)
 
       if (!dryRun) {
         try {
-          await unifi.deleteDirectoryEntry(site.unifi_controller_url, session, entry.id)
-
-          // Clear the unifi_directory_id from any inactive resident that still has this ID
-          const { data: staleResident } = await supabase.db?.from('residents')
-            .select('id')
-            .eq('unifi_directory_id', entry.id)
-            .maybeSingle() ?? {}
-          if (staleResident) {
-            await supabase.clearResidentUnifiId(staleResident.id)
-          }
-
+          await unifi.deleteDirectoryEntry(
+            site.unifi_controller_url, session, templateId, room.id
+          )
           stats.deleted++
         } catch (e) {
-          err(`[${site.slug}] Failed to delete "${entry.name}":`, e)
-          stats.error = e.message
+          err(`[${site.slug}] Failed to delete "${room.name}":`, e)
+          stats.error  = e.message
           stats.status = 'partial'
         }
       } else {
-        log(`[${site.slug}] DRY-RUN: would delete "${entry.name}"`)
+        log(`[${site.slug}] DRY-RUN: would delete "${room.name}"`)
         stats.deleted++
       }
     }
 
     // 6. Update site sync metadata
     if (!dryRun) {
-      const finalCount = unifiEntries.length + stats.added - stats.deleted
+      const finalCount = rooms.length + stats.added - stats.deleted
       await supabase.updateSiteSyncStatus(site.id, Math.max(0, finalCount))
     }
 
@@ -268,6 +286,10 @@ async function syncSite(site, dryRun = false) {
 
 async function listMode(sites) {
   for (const site of sites) {
+    if (!site.unifi_template_id) {
+      log(`[${site.slug}] No unifi_template_id configured — skipping`)
+      continue
+    }
     log(`[${site.slug}] Listing UniFi directory…`)
     try {
       const session = await unifi.login(
@@ -275,10 +297,12 @@ async function listMode(sites) {
         site.unifi_local_username,
         site.unifi_local_password
       )
-      const entries = await unifi.listDirectoryEntries(site.unifi_controller_url, session)
-      log(`[${site.slug}] ${entries.length} entries:`)
-      entries.forEach(e => {
-        console.log(`  [${e.dial_number}] ${e.name}  ${e.phone ?? '(no phone)'}  id=${e.id}`)
+      const rooms = await unifi.listDirectoryEntries(
+        site.unifi_controller_url, session, site.unifi_template_id
+      )
+      log(`[${site.slug}] ${rooms.length} rooms:`)
+      rooms.forEach(r => {
+        console.log(`  [${r.room}] ${r.name}  id=${r.id}`)
       })
     } catch (e) {
       err(`[${site.slug}] List failed:`, e)

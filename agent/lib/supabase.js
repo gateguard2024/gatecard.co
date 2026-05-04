@@ -37,7 +37,7 @@ function db() {
 async function getActiveSites(siteSlug = null) {
   let query = db()
     .from('sites')
-    .select('id, slug, name, unifi_controller_url, unifi_local_username, unifi_local_password')
+    .select('id, slug, name, unifi_controller_url, unifi_local_username, unifi_local_password, unifi_template_id')
     .eq('active', true)
     .not('unifi_controller_url', 'is', null)
     .not('unifi_local_username', 'is', null)
