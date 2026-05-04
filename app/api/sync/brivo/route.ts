@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 /**
  * GET /api/sync/brivo
  *
- * Pulls residents from the GateGuard portal's Brivo integration and upserts
+ * Pulls residents directly from Brivo (per-site credentials) and upserts
  * them into gatecard.co's residents table.
  *
  * Triggered by Vercel Cron every hour. Can also be called manually.
@@ -13,53 +13,103 @@ import { supabaseAdmin } from '@/lib/supabase'
  * Vercel Cron injects this automatically when CRON_SECRET env var is set.
  *
  * Optional query param ?siteSlug=xxx to sync a single site.
- *
- * ── Portal contract ────────────────────────────────────────────────────────
- * The GateGuard portal exposes:
- *
- *   GET /api/brivo/users?brivoSiteId=<id>
- *   Headers: x-internal-secret: <GATEGUARD_API_SECRET>
- *   Response: {
- *     users: [{
- *       id:          string   // Brivo user ID
- *       firstName:   string
- *       lastName:    string
- *       phone:       string | null   // E.164, from Brivo custom field
- *       email:       string | null
- *       unitNumber:  string | null   // from Brivo group/credential
- *       active:      boolean
- *     }]
- *   }
  */
 
+interface BrivoTokenResponse {
+  access_token: string
+}
+
 interface BrivoUser {
-  id:         string
-  firstName:  string
-  lastName:   string
-  phone:      string | null
-  email:      string | null
-  unitNumber: string | null
-  active:     boolean
+  id:           string
+  firstName:    string
+  lastName:     string
+  phoneNumbers: { number: string }[]
+  email?:       string
+  customFields?: { fieldName: string; fieldValue: string }[]
+}
+
+async function getBrivoToken(authBasic: string, username: string, password: string): Promise<string> {
+  const res = await fetch('https://auth.brivo.com/oauth/token', {
+    method: 'POST',
+    headers: {
+      'Authorization':  `Basic ${authBasic}`,
+      'Content-Type':   'application/x-www-form-urlencoded',
+      'Accept':         '*/*',
+    },
+    body: new URLSearchParams({
+      grant_type: 'password',
+      username,
+      password,
+    }).toString(),
+    cache: 'no-store',
+  })
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`Brivo auth failed (${res.status}): ${text.slice(0, 200)}`)
+  }
+
+  const data: BrivoTokenResponse = await res.json()
+  if (!data.access_token) throw new Error('Brivo auth: no access_token in response')
+  return data.access_token
+}
+
+async function getBrivoUsers(apiKey: string, token: string): Promise<BrivoUser[]> {
+  // Fetch up to 1000 users (pageSize max is 100 per call — paginate if needed)
+  const users: BrivoUser[] = []
+  let offset = 0
+  const pageSize = 100
+
+  while (true) {
+    const res = await fetch(
+      `https://api.brivo.com/v1/api/users?pageSize=${pageSize}&offset=${offset}`,
+      {
+        headers: {
+          'Authorization': `bearer ${token}`,
+          'api-key':       apiKey.trim(),
+        },
+        cache: 'no-store',
+      }
+    )
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new Error(`Brivo users fetch failed (${res.status}): ${text.slice(0, 200)}`)
+    }
+
+    const data = await res.json()
+    const page: BrivoUser[] = data.users || data.data || data.results || []
+
+    users.push(...page)
+
+    // If we got fewer than pageSize, we've reached the end
+    if (page.length < pageSize) break
+    offset += pageSize
+  }
+
+  return users
 }
 
 export async function GET(req: NextRequest) {
-  // ── Auth ───────────────────────────────────────────────────────────────────
-  const auth = req.headers.get('authorization') ?? ''
+  // ── Auth ─────────────────────────────────────────────────────────────────────
+  const auth       = req.headers.get('authorization') ?? ''
   const cronSecret = process.env.CRON_SECRET
   if (cronSecret && auth !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const siteSlugFilter = req.nextUrl.searchParams.get('siteSlug')
-
   const db = supabaseAdmin()
 
-  // ── Fetch sites to sync ────────────────────────────────────────────────────
+  // ── Fetch sites with Brivo credentials ───────────────────────────────────────
   let sitesQuery = db
     .from('sites')
-    .select('id, slug, name, brivo_site_id')
+    .select('id, slug, name, brivo_api_key, brivo_auth_basic, brivo_username, brivo_password')
     .eq('active', true)
-    .not('brivo_site_id', 'is', null)
+    .not('brivo_api_key', 'is', null)
+    .not('brivo_auth_basic', 'is', null)
+    .not('brivo_username', 'is', null)
+    .not('brivo_password', 'is', null)
 
   if (siteSlugFilter) {
     sitesQuery = sitesQuery.eq('slug', siteSlugFilter)
@@ -71,7 +121,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok:      true,
       synced:  0,
-      message: siteSlugFilter ? 'Site not found or no brivo_site_id' : 'No sites with brivo_site_id',
+      message: siteSlugFilter
+        ? 'Site not found or missing Brivo credentials'
+        : 'No sites with Brivo credentials configured',
     })
   }
 
@@ -79,46 +131,31 @@ export async function GET(req: NextRequest) {
 
   for (const site of sites) {
     try {
-      // ── 1. Fetch residents from GateGuard portal ───────────────────────────
-      const portalUrl = process.env.GATEGUARD_PORTAL_URL ?? 'https://portal.gateguard.co'
-      const res = await fetch(
-        `${portalUrl}/api/brivo/users?brivoSiteId=${encodeURIComponent(site.brivo_site_id!)}`,
-        {
-          headers: {
-            'x-internal-secret': process.env.GATEGUARD_API_SECRET ?? '',
-            'Accept':            'application/json',
-          },
-          // 20 second timeout
-          signal: AbortSignal.timeout(20_000),
-        }
+      // ── 1. Authenticate to Brivo ────────────────────────────────────────────
+      const token = await getBrivoToken(
+        site.brivo_auth_basic!,
+        site.brivo_username!,
+        site.brivo_password!
       )
 
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        throw new Error(`Portal returned ${res.status}: ${text.slice(0, 200)}`)
-      }
-
-      const { users }: { users: BrivoUser[] } = await res.json()
-
-      if (!Array.isArray(users)) {
-        throw new Error('Portal response missing users array')
-      }
+      // ── 2. Fetch all users for this site's Brivo account ────────────────────
+      const brivoUsers = await getBrivoUsers(site.brivo_api_key!, token)
 
       const now = new Date().toISOString()
+      const activeUsers = brivoUsers.filter(u => u.id)
 
-      // ── 2. Upsert active residents ─────────────────────────────────────────
-      const activeUsers = users.filter(u => u.active && u.id)
-
+      // ── 3. Upsert active residents ───────────────────────────────────────────
       let upserted = 0
       if (activeUsers.length > 0) {
         const rows = activeUsers.map(u => ({
           site_id:        site.id,
-          brivo_user_id:  u.id,
-          first_name:     u.firstName?.trim() || '(Unknown)',
-          last_name:      u.lastName?.trim()  || '',
-          phone:          u.phone || null,
+          brivo_user_id:  String(u.id),
+          first_name:     u.firstName?.trim()  || '(Unknown)',
+          last_name:      u.lastName?.trim()   || '',
+          display_name:   `${u.firstName?.trim() || ''} ${u.lastName?.trim() || ''}`.trim(),
+          phone:          u.phoneNumbers?.[0]?.number || null,
           email:          u.email || null,
-          unit_number:    u.unitNumber || '?',
+          unit_number:    null,   // Brivo doesn't expose unit reliably — update manually if needed
           active:         true,
           last_synced_at: now,
         }))
@@ -126,22 +163,20 @@ export async function GET(req: NextRequest) {
         const { error: upsertErr } = await db
           .from('residents')
           .upsert(rows, {
-            onConflict:        'site_id, brivo_user_id',
-            ignoreDuplicates:  false,
+            onConflict:       'site_id, brivo_user_id',
+            ignoreDuplicates: false,
           })
 
         if (upsertErr) throw new Error(`Upsert failed: ${upsertErr.message}`)
         upserted = rows.length
       }
 
-      // ── 3. Deactivate residents no longer in Brivo ─────────────────────────
-      // Any resident for this site with a brivo_user_id NOT in the current
-      // list gets marked inactive (moved out / removed in Yardi → Brivo).
-      const activeBrivoIds = activeUsers.map(u => u.id)
-
+      // ── 4. Deactivate residents no longer in Brivo ──────────────────────────
+      const activeBrivoIds = activeUsers.map(u => String(u.id))
       let deactivated = 0
+
       if (activeBrivoIds.length > 0) {
-        const { data: deactivated_rows, error: deactErr } = await db
+        const { data: deactivatedRows, error: deactErr } = await db
           .from('residents')
           .update({ active: false, last_synced_at: now })
           .eq('site_id', site.id)
@@ -153,7 +188,7 @@ export async function GET(req: NextRequest) {
         if (deactErr) {
           console.warn('[sync/brivo] deactivate error', site.slug, deactErr.message)
         } else {
-          deactivated = deactivated_rows?.length ?? 0
+          deactivated = deactivatedRows?.length ?? 0
         }
       }
 

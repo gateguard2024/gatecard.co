@@ -1,7 +1,7 @@
 /**
  * POST /api/sites/setup
  *
- * Creates or updates a site row with full UniFi intercom configuration.
+ * Creates or updates a site row with full Brivo + UniFi configuration.
  * Used by the /setup-site admin page.
  *
  * Upserts on slug — safe to run multiple times.
@@ -22,7 +22,10 @@ export async function POST(req: NextRequest) {
       state,
       leasing_phone,
       soc_phone,
-      brivo_site_id,
+      brivo_api_key,
+      brivo_auth_basic,
+      brivo_username,
+      brivo_password,
       een_camera_id,
       unifi_controller_url,
       unifi_local_username,
@@ -51,7 +54,10 @@ export async function POST(req: NextRequest) {
           state:                 state.toUpperCase().trim(),
           leasing_phone:         leasing_phone?.trim() || null,
           soc_phone:             soc_phone?.trim() || null,
-          brivo_site_id:         brivo_site_id?.trim() || null,
+          brivo_api_key:         brivo_api_key?.trim() || null,
+          brivo_auth_basic:      brivo_auth_basic?.trim() || null,
+          brivo_username:        brivo_username?.trim() || null,
+          brivo_password:        brivo_password?.trim() || null,
           een_camera_id:         een_camera_id?.trim() || null,
           unifi_controller_url:  unifi_controller_url?.trim() || null,
           unifi_local_username:  unifi_local_username?.trim() || null,

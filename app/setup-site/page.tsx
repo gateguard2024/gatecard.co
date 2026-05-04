@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import {
-  Building2, Globe, MapPin, Phone, Key, Wifi, CheckCircle2, AlertCircle,
-  ChevronDown, ChevronUp, ArrowRight, Lock,
+  Building2, Globe, Phone, Wifi, CheckCircle2, AlertCircle,
+  ChevronDown, ChevronUp, ArrowRight, Lock, ShieldCheck,
 } from 'lucide-react'
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error'
@@ -11,7 +11,8 @@ type FormState = 'idle' | 'submitting' | 'success' | 'error'
 const INITIAL = {
   name: '', slug: '', address: '', city: '', state: '',
   leasing_phone: '', soc_phone: '',
-  brivo_site_id: '', een_camera_id: '',
+  brivo_api_key: '', brivo_auth_basic: '', brivo_username: '', brivo_password: '',
+  een_camera_id: '',
   unifi_controller_url: '', unifi_local_username: '',
   unifi_local_password: '', unifi_template_id: '',
 }
@@ -21,6 +22,7 @@ export default function SetupSitePage() {
   const [state, setState]     = useState<FormState>('idle')
   const [error, setError]     = useState('')
   const [created, setCreated] = useState<{ slug: string; name: string } | null>(null)
+  const [showBrivo, setShowBrivo] = useState(false)
   const [showUnifi, setShowUnifi] = useState(false)
 
   const set = (k: keyof typeof INITIAL) =>
@@ -184,15 +186,64 @@ export default function SetupSitePage() {
             />
           </Section>
 
+          {/* ── Brivo credentials ────────────────────────── */}
+          <div style={{ border: '1px solid rgba(99,102,241,0.3)', borderRadius: 14, overflow: 'hidden', background: 'rgba(99,102,241,0.05)' }}>
+            <button
+              type="button"
+              onClick={() => setShowBrivo(v => !v)}
+              style={{ width: '100%', padding: '0.875rem 1rem', display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+            >
+              <ShieldCheck size={15} style={{ color: 'var(--gc-blue-light)', flexShrink: 0 }} />
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--gc-blue-light)' }}>
+                Brivo credentials
+              </span>
+              <span style={{ fontSize: 11, color: 'var(--gc-text-secondary)', marginRight: 6 }}>required for resident sync</span>
+              {showBrivo
+                ? <ChevronUp size={14} style={{ color: 'var(--gc-text-secondary)' }} />
+                : <ChevronDown size={14} style={{ color: 'var(--gc-text-secondary)' }} />
+              }
+            </button>
+
+            {showBrivo && (
+              <div style={{ padding: '0 1rem 1rem', display: 'flex', flexDirection: 'column', gap: 12, borderTop: '1px solid rgba(99,102,241,0.3)' }}>
+                <p style={{ fontSize: 12, color: 'var(--gc-text-secondary)', marginTop: 12, lineHeight: 1.6 }}>
+                  Each property has its own Brivo account. These credentials are used to pull residents hourly into Supabase.
+                </p>
+                <Field
+                  label="API key"
+                  placeholder="your-brivo-api-key"
+                  value={form.brivo_api_key}
+                  onChange={set('brivo_api_key')}
+                  hint="From Brivo developer portal → API Keys"
+                />
+                <Field
+                  label="Auth basic (Base64)"
+                  placeholder="Y2xpZW50X2lkOmNsaWVudF9zZWNyZXQ="
+                  value={form.brivo_auth_basic}
+                  onChange={set('brivo_auth_basic')}
+                  hint="Base64 of client_id:client_secret from Brivo OAuth app"
+                />
+                <Field
+                  label="Username"
+                  placeholder="admin@eastponce.com"
+                  value={form.brivo_username}
+                  onChange={set('brivo_username')}
+                  hint="Brivo admin login email for this property"
+                />
+                <Field
+                  label="Password"
+                  placeholder="••••••••••••"
+                  value={form.brivo_password}
+                  onChange={set('brivo_password')}
+                  type="password"
+                  icon={Lock}
+                />
+              </div>
+            )}
+          </div>
+
           {/* ── Integrations ─────────────────────────────── */}
           <Section label="Integrations" icon={Globe}>
-            <Field
-              label="Brivo site ID"
-              placeholder="brivo-site-id"
-              value={form.brivo_site_id}
-              onChange={set('brivo_site_id')}
-              hint="From Brivo dashboard — required for resident sync"
-            />
             <Field
               label="Eagle Eye camera ID"
               placeholder="een-camera-id"
