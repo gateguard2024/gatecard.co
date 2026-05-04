@@ -26,9 +26,45 @@ const https = require('https')
 const AGENT = new https.Agent({ rejectUnauthorized: false })
 
 // ─── Internal fetch wrapper ───────────────────────────────────────────────────
+// Uses https.request directly so the custom agent (self-signed cert bypass)
+// is honoured — Node 18's global fetch silently ignores the `agent` option.
 
-async function localFetch(url, options = {}) {
-  return fetch(url, { ...options, agent: AGENT })
+function localFetch(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const parsed  = new URL(url)
+    const method  = options.method ?? 'GET'
+    const headers = options.headers ?? {}
+    const body    = options.body ?? null
+
+    const req = https.request(
+      {
+        hostname: parsed.hostname,
+        port:     parsed.port || 443,
+        path:     parsed.pathname + parsed.search,
+        method,
+        headers,
+        agent:    AGENT,
+      },
+      (res) => {
+        const chunks = []
+        res.on('data', c => chunks.push(c))
+        res.on('end', () => {
+          const raw = Buffer.concat(chunks).toString('utf8')
+          resolve({
+            ok:     res.statusCode >= 200 && res.statusCode < 300,
+            status: res.statusCode,
+            headers: { get: (name) => res.headers[name.toLowerCase()] ?? null },
+            text:   () => Promise.resolve(raw),
+            json:   () => Promise.resolve(JSON.parse(raw)),
+          })
+        })
+      }
+    )
+
+    req.on('error', reject)
+    if (body) req.write(body)
+    req.end()
+  })
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
