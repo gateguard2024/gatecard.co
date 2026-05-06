@@ -159,11 +159,9 @@ export async function GET(req: NextRequest) {
             site_id:        site.id,
             brivo_user_id:  String(u.id),
             first_name:     firstName || '(Unknown)',
-            last_name:      lastName,
-            display_name:   displayName,
+            last_name:      lastInitial ? lastInitial : lastName,
             phone:          u.phoneNumbers?.[0]?.number || null,
             email:          u.email || null,
-            unit_number:    null,   // Brivo doesn't expose unit reliably — update manually if needed
             active:         true,
             last_synced_at: now,
           }
