@@ -155,12 +155,22 @@ export async function GET(req: NextRequest) {
           const lastInitial = lastName ? `${lastName.charAt(0).toUpperCase()}.` : ''
           const displayName = `${firstName} ${lastInitial}`.trim()
 
+          // Normalize phone to E.164 — Brivo often returns 10-digit US numbers
+          const rawPhone = u.phoneNumbers?.[0]?.number || null
+          let phone: string | null = null
+          if (rawPhone) {
+            const digits = rawPhone.replace(/\D/g, '')
+            if (digits.length === 10) phone = `+1${digits}`
+            else if (digits.length === 11 && digits.startsWith('1')) phone = `+${digits}`
+            else phone = rawPhone // already formatted or international
+          }
+
           return {
             site_id:        site.id,
             brivo_user_id:  String(u.id),
             first_name:     firstName || '(Unknown)',
             last_name:      lastInitial ? lastInitial : lastName,
-            phone:          u.phoneNumbers?.[0]?.number || null,
+            phone,
             email:          u.email || null,
             active:         true,
             last_synced_at: now,
