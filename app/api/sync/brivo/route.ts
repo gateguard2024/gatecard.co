@@ -147,18 +147,27 @@ export async function GET(req: NextRequest) {
       // ── 3. Upsert active residents ───────────────────────────────────────────
       let upserted = 0
       if (activeUsers.length > 0) {
-        const rows = activeUsers.map(u => ({
-          site_id:        site.id,
-          brivo_user_id:  String(u.id),
-          first_name:     u.firstName?.trim()  || '(Unknown)',
-          last_name:      u.lastName?.trim()   || '',
-          display_name:   `${u.firstName?.trim() || ''} ${u.lastName?.trim() || ''}`.trim(),
-          phone:          u.phoneNumbers?.[0]?.number || null,
-          email:          u.email || null,
-          unit_number:    null,   // Brivo doesn't expose unit reliably — update manually if needed
-          active:         true,
-          last_synced_at: now,
-        }))
+        const rows = activeUsers.map(u => {
+          const firstName  = u.firstName?.trim() || ''
+          const lastName   = u.lastName?.trim()  || ''
+          // Display name uses first initial of last name for intercom privacy
+          // e.g. "John Smith" → "John S."
+          const lastInitial = lastName ? `${lastName.charAt(0).toUpperCase()}.` : ''
+          const displayName = `${firstName} ${lastInitial}`.trim()
+
+          return {
+            site_id:        site.id,
+            brivo_user_id:  String(u.id),
+            first_name:     firstName || '(Unknown)',
+            last_name:      lastName,
+            display_name:   displayName,
+            phone:          u.phoneNumbers?.[0]?.number || null,
+            email:          u.email || null,
+            unit_number:    null,   // Brivo doesn't expose unit reliably — update manually if needed
+            active:         true,
+            last_synced_at: now,
+          }
+        })
 
         const { error: upsertErr } = await db
           .from('residents')
