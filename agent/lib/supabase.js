@@ -52,20 +52,40 @@ async function getActiveSites(siteSlug = null) {
 
 /**
  * Fetch all active residents for a site, with their UniFi directory mapping.
+ * Includes pinned entries (leasing office, EMS, etc.) even if they have no phone.
  *
  * @param {string} siteId
- * @returns {Promise<Array<{id, display_name, unit_number, phone, unifi_directory_id}>>}
+ * @returns {Promise<Array<{id, display_name, unit_number, phone, unifi_directory_id, pinned}>>}
  */
 async function getActiveResidents(siteId) {
   const { data, error } = await db()
     .from('residents')
-    .select('id, display_name, unit_number, phone, unifi_directory_id')
+    .select('id, display_name, unit_number, phone, unifi_directory_id, pinned')
     .eq('site_id', siteId)
     .eq('active', true)
     .not('phone', 'is', null)   // Only sync residents with a phone number
-    .order('unit_number', { ascending: true })
+    .order('unit_number', { ascending: true, nullsFirst: false })
 
   if (error) throw new Error(`getActiveResidents failed: ${error.message}`)
+  return data ?? []
+}
+
+/**
+ * Fetch all active PINNED residents for a site (regardless of phone).
+ * Used to protect leasing office / EMS entries from deletion.
+ *
+ * @param {string} siteId
+ * @returns {Promise<Array<{id, display_name, unit_number, phone, unifi_directory_id, pinned}>>}
+ */
+async function getPinnedResidents(siteId) {
+  const { data, error } = await db()
+    .from('residents')
+    .select('id, display_name, unit_number, phone, unifi_directory_id, pinned')
+    .eq('site_id', siteId)
+    .eq('active', true)
+    .eq('pinned', true)
+
+  if (error) throw new Error(`getPinnedResidents failed: ${error.message}`)
   return data ?? []
 }
 
@@ -146,6 +166,7 @@ async function writeSyncLog(siteId, result) {
 module.exports = {
   getActiveSites,
   getActiveResidents,
+  getPinnedResidents,
   setResidentUnifiId,
   clearResidentUnifiId,
   updateSiteSyncStatus,

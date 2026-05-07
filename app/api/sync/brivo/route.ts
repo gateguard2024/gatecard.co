@@ -189,6 +189,7 @@ export async function GET(req: NextRequest) {
       }
 
       // ── 4. Deactivate residents no longer in Brivo ──────────────────────────
+      // Skip pinned residents — they are permanent entries not managed by Brivo.
       const activeBrivoIds = activeUsers.map(u => String(u.id))
       let deactivated = 0
 
@@ -198,6 +199,7 @@ export async function GET(req: NextRequest) {
           .update({ active: false, last_synced_at: now })
           .eq('site_id', site.id)
           .eq('active', true)
+          .eq('pinned', false)
           .not('brivo_user_id', 'is', null)
           .not('brivo_user_id', 'in', `(${activeBrivoIds.map(id => `"${id}"`).join(',')})`)
           .select('id')
