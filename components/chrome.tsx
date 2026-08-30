@@ -1,9 +1,16 @@
 import Link from 'next/link'
 import type { Property } from '@/lib/types'
 
-/** Initials mark — stands in until a property supplies a wordmark. */
-function initials(name: string) {
-  return name.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()
+/**
+ * Initials mark — stands in until a property supplies a wordmark.
+ * Connector words are skipped, so "Rhythm at Camp Creek" is RC, not RA.
+ */
+const SKIP = new Set(['at', 'the', 'of', 'on', 'in', 'by', 'and', '&'])
+
+export function initials(name: string) {
+  const words = name.split(/[\s-]+/).filter(w => w && !SKIP.has(w.toLowerCase()))
+  return (words.length ? words : name.split(/\s+/))
+    .slice(0, 2).map(w => w[0]).join('').toUpperCase()
 }
 
 /**

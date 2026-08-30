@@ -21,7 +21,13 @@ export default function Parking() {
   const chosen = s.parkingTierId || ctx.parkingTiers.find(t => t.included)?.id || ''
   const tier = ctx.parkingTiers.find(t => t.id === chosen)
   const v = s.vehicle
-  const ready = v.plate.trim().length >= 2 && v.state.trim().length >= 2
+
+  // Not every property has a free tier. Where none is included there is nothing
+  // to preselect, so the resident has to choose one — otherwise the screen
+  // would advance with no parking at all and look like it worked.
+  const hasTier = Boolean(tier)
+  const hasPlate = v.plate.trim().length >= 2 && v.state.trim().length >= 2
+  const ready = hasTier && hasPlate
 
   return (
     <>
@@ -34,7 +40,9 @@ export default function Parking() {
 
         <div className="mi-free">
           <span aria-hidden>✓</span>
-          No card needed here. Upgrades are part of your lease.
+          {ctx.parkingTiers.some(t => t.included)
+            ? 'No card needed here. Upgrades are part of your lease.'
+            : 'No card needed here. Parking is billed as part of your lease.'}
         </div>
 
         {ctx.parkingTiers.map(t => {
@@ -108,7 +116,11 @@ export default function Parking() {
 
       <StepFooter
         href={`/${siteSlug}/move-in/services`}
-        label={ready ? 'Finish setup' : 'Add your plate'}
+        label={
+          !hasTier ? 'Choose where you\'ll park'
+          : !hasPlate ? 'Add your plate'
+          : 'Finish setup'
+        }
         disabled={!ready}
       />
     </>
