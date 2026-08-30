@@ -1,6 +1,8 @@
 'use client'
 
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import {
+  createContext, useContext, useEffect, useRef, useState, type ReactNode,
+} from 'react'
 import type {
   CredentialKind, VehicleDraft, MoveInContext, DirectoryNameFormat,
 } from '@/lib/types'
@@ -29,6 +31,12 @@ export interface MoveInState {
   /** Listed in the callbox directory. Never affects access, either way. */
   directoryListed: boolean
   directoryFormat: DirectoryNameFormat
+  /**
+   * Furthest step the resident has actually reached, so they can move back and
+   * forward across what they've done without being able to jump ahead into a
+   * screen that depends on answers they haven't given yet.
+   */
+  furthest: number
 }
 
 const EMPTY: MoveInState = {
@@ -42,6 +50,7 @@ const EMPTY: MoveInState = {
   cart: {},
   directoryListed: true,
   directoryFormat: 'last_initial',
+  furthest: 0,
 }
 
 const Ctx = createContext<{
@@ -54,6 +63,8 @@ const Ctx = createContext<{
 export function MoveInProvider(
   { ctx, children }: { ctx: MoveInContext; children: ReactNode },
 ) {
+  const storageKey = `movein:${ctx.property.slug}`
+
   const [s, setS] = useState<MoveInState>(() => ({
     ...EMPTY,
     // Default to whatever the property marks as included.
@@ -68,6 +79,37 @@ export function MoveInProvider(
   }))
   const set = <K extends keyof MoveInState>(k: K, v: MoveInState[K]) =>
     setS(prev => ({ ...prev, [k]: v }))
+
+  /**
+   * Survive a reload.
+   *
+   * Move-in happens on a phone, outdoors, on whatever signal the parking lot
+   * has. A dropped connection or an accidental refresh should not mean typing
+   * everything again — that is how a four-minute task becomes a call to the
+   * leasing office.
+   *
+   * Read in an effect rather than in the state initialiser, so the server and
+   * the first client render agree. Session-scoped and best-effort: a private
+   * window or blocked storage just means the flow behaves as it did before.
+   */
+  const loaded = useRef(false)
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(storageKey)
+      if (raw) setS(prev => ({ ...prev, ...JSON.parse(raw) as Partial<MoveInState> }))
+    } catch { /* storage unavailable — carry on without it */ }
+    loaded.current = true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (!loaded.current) return
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify(s))
+    } catch { /* quota or private mode — not worth interrupting a move-in for */ }
+  }, [s, storageKey])
+
   return <Ctx.Provider value={{ ctx, s, set }}>{children}</Ctx.Provider>
 }
 

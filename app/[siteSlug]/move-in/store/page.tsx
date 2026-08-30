@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { StepRail, money } from '@/components/chrome'
+import { money } from '@/components/chrome'
+import { StepNav } from '../nav'
 import { useMoveIn } from '../state'
 
 /**
@@ -31,7 +32,7 @@ export default function Store() {
 
   return (
     <>
-      <StepRail index={4} />
+      <StepNav index={4} />
       <div className="mi-body">
         <h1 className="mi-h1">Community store</h1>
         <p className="mi-lede">

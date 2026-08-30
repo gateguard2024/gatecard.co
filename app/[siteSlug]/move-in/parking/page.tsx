@@ -1,6 +1,7 @@
 'use client'
 
-import { StepRail, StepFooter, Check, money } from '@/components/chrome'
+import { StepFooter, Check, money } from '@/components/chrome'
+import { StepNav } from '../nav'
 import { useMoveIn } from '../state'
 
 /**
@@ -43,7 +44,7 @@ export default function Parking() {
 
   return (
     <>
-      <StepRail index={2} />
+      <StepNav index={2} />
       <div className="mi-body">
         <h1 className="mi-h1">
           {tiersOffered ? 'Where you\u2019ll park' : 'Your vehicle'}

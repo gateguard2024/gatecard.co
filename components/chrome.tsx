@@ -65,35 +65,6 @@ export function NotYourUnit({ property }: { property: Property }) {
   )
 }
 
-const STEPS = ['', 'access', 'parking', 'services', 'store', 'confirmation']
-const LABELS = [
-  'Step 1 of 3 · Who you are',
-  'Step 2 of 3 · Your access',
-  'Step 3 of 3 · Parking',
-  'Optional · Services',
-  'Optional · Community store',
-  'All set',
-]
-
-/**
- * Six segments, but the label counts only to three. Activation is the job;
- * screens 04–05 are extra and are labelled as optional, not as remaining work.
- */
-export function StepRail({ index }: { index: number }) {
-  return (
-    <>
-      <div className="mi-rail" role="progressbar" aria-valuenow={index + 1} aria-valuemin={1} aria-valuemax={6}>
-        {STEPS.map((_, i) => (
-          <div key={i} className="mi-rail-seg"
-               data-on={i < index ? 'true' : 'false'}
-               data-now={i === index ? 'true' : 'false'} />
-        ))}
-      </div>
-      <div className="mi-rail-label">{LABELS[index]}</div>
-    </>
-  )
-}
-
 export function StepFooter({
   href, label, disabled, secondary,
 }: { href: string; label: string; disabled?: boolean; secondary?: React.ReactNode }) {

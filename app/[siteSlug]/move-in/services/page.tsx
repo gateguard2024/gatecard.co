@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { StepRail, Check, money } from '@/components/chrome'
+import { Check, money } from '@/components/chrome'
+import { StepNav } from '../nav'
 import { useMoveIn } from '../state'
 
 /**
@@ -37,7 +38,7 @@ export default function Services() {
 
   return (
     <>
-      <StepRail index={3} />
+      <StepNav index={3} />
       <div className="mi-body">
         <div className="mi-free" style={{ marginTop: '0.5rem' }}>
           <span aria-hidden>✓</span>

@@ -1,6 +1,7 @@
 'use client'
 
-import { StepRail, StepFooter, Check, money } from '@/components/chrome'
+import { StepFooter, Check, money } from '@/components/chrome'
+import { StepNav } from '../nav'
 import { useMoveIn } from '../state'
 import type { CredentialKind, DirectoryNameFormat } from '@/lib/types'
 
@@ -31,7 +32,7 @@ export default function Access() {
 
   return (
     <>
-      <StepRail index={1} />
+      <StepNav index={1} />
       <div className="mi-body">
         <h1 className="mi-h1">How you&apos;ll get in</h1>
         <p className="mi-lede">

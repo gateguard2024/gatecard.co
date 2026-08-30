@@ -2,7 +2,8 @@
 
 import { useEffect, useRef } from 'react'
 
-import { StepRail, StepFooter, NotYourUnit } from '@/components/chrome'
+import { StepFooter, NotYourUnit } from '@/components/chrome'
+import { StepNav } from './nav'
 import { useMoveIn } from './state'
 import { formatMoveInDate } from '@/lib/dates'
 
@@ -72,7 +73,7 @@ export default function Arrival() {
 
   return (
     <>
-      <StepRail index={0} />
+      <StepNav index={0} />
       <div className="mi-body">
         <h1 className="mi-h1">Welcome home, {resident.firstName}.</h1>
         <p className="mi-lede">

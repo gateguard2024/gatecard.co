@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 
-import { StepRail, money } from '@/components/chrome'
+import { money } from '@/components/chrome'
+import { StepNav } from '../nav'
 import { useMoveIn } from '../state'
 import type { ConfirmationItem, ItemState } from '@/lib/types'
 
@@ -129,7 +130,7 @@ export default function Confirmation() {
 
   return (
     <>
-      <StepRail index={5} />
+      <StepNav index={5} />
       <div className="mi-body">
         <h1 className="mi-h1">You&apos;re in, {ctx.resident.firstName}.</h1>
         <p className="mi-lede">

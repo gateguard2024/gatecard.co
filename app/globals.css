@@ -362,3 +362,36 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+@layer components {
+  /* ── Step navigation ─────────────────────────────────────────────────────
+     The rail doubles as navigation. Hit areas are padded well beyond the 3px
+     bar so a thumb can actually land on one; the bar stays thin. */
+  .mi-rail-hit {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0;
+    margin: -0.5rem 0;
+    min-height: 0;
+  }
+  a.mi-rail-hit { cursor: pointer; }
+  a.mi-rail-hit:hover .mi-rail-seg { background: var(--accent-hi); }
+  .mi-rail-hit .mi-rail-seg { width: 100%; }
+
+  .mi-rail-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.75rem; padding: 0.5rem 1.125rem 0;
+  }
+  .mi-rail-row .mi-rail-label { padding: 0; }
+
+  .mi-back {
+    display: inline-flex; align-items: center; gap: 0.25rem;
+    font-size: 0.75rem; font-weight: 600;
+    color: var(--accent-hi); text-decoration: none;
+    padding: 0.375rem 0.5rem 0.375rem 0;
+    min-height: 0;
+  }
+  .mi-back svg { width: 14px; height: 14px; }
+  .mi-back:hover { text-decoration: underline; text-underline-offset: 3px; }
+}
