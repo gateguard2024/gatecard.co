@@ -19,50 +19,51 @@
 :root {
   color-scheme: dark;
 
-  /* ── Accent — steel blue. Per-property override lands on [data-property]. ── */
-  --accent:            #6CABD4;
-  --accent-hi:         #A2D0E9;
-  --accent-ink:        #071119;
+  /* ── Accent — steel blue, straight off the portal's meters ── */
+  --accent:            #6CABD4;   /* fills, rails, large marks */
+  --accent-hi:         #A4D2E8;   /* links and text — 5.6:1 on surface */
+  --accent-ink:        #0C1C27;   /* 10.7:1 on accent-hi */
 
-  /* ── Ground ── */
-  --bg:                #0B111C;
+  /* ── Ground ──────────────────────────────────────────────────────────────
+     Mid slate, not near-black. Region-averaged from portal.gateguard.co:
+     app ground #394A5C, frosted panels #5A6576, cards #323D4E. The portal
+     puts cards DARKER than its frosted section panel; in a single mobile
+     column that reads inverted, so cards sit a step lighter than the ground
+     here and the header keeps the frosted-panel tone.  */
+  --bg:                #35455A;
   --bg-grad:
-    radial-gradient(ellipse 120% 55% at 50% -10%, #16202F 0%, #0B111C 62%);
-  /* Faint blueprint grid, as on the portal. Sits under everything. */
+    radial-gradient(ellipse 130% 60% at 50% -12%, #445468 0%, #2F3E51 68%);
   --bg-grid:
-    linear-gradient(rgba(140,175,205,0.030) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(140,175,205,0.030) 1px, transparent 1px);
-  --bg-grid-size:      44px 44px;
+    linear-gradient(rgba(226,238,250,0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(226,238,250,0.022) 1px, transparent 1px);
+  --bg-grid-size:      52px 52px;
 
-  --surface:           #141D2B;
-  --surface-2:         #1A2433;
-  --surface-sunk:      #101827;
+  --surface:           #3C4C61;
+  --surface-2:         #46566C;
+  --surface-frost:     #566274;   /* the portal's lighter frosted panel */
+  --surface-sunk:      #2E3C4E;
 
-  --text:              #E4ECF4;
-  --text-2:            #96A6B9;
-  --text-3:            #63748A;
+  /* Every value below is contrast-checked against --surface and --bg. */
+  --text:              #EEF3F9;   /* 8.1:1  */
+  --text-2:            #B3C0CF;   /* 4.9:1  */
+  --text-3:            #AEBCCA;   /* 4.7:1 — small caption text, so it has to
+                                     clear 4.5 rather than sit at 3:1 */
 
-  --line:              rgba(150,180,208,0.11);
-  --line-2:            rgba(150,180,208,0.22);
+  --line:              rgba(226,238,250,0.13);
+  --line-2:            rgba(226,238,250,0.24);
 
-  --ok:                #3FB98A;
+  --ok:                #5FD3A8;
   --warn:              #F2C24B;
-  --stop:              #E14F62;
+  --stop:              #F0707F;
 
-  --shadow-card:       0 1px 0 rgba(255,255,255,0.035) inset, 0 6px 22px rgba(0,0,0,0.42);
-  --shadow-lift:       0 1px 0 rgba(255,255,255,0.05) inset, 0 16px 40px rgba(0,0,0,0.55);
+  --shadow-card:       0 1px 0 rgba(255,255,255,0.06) inset, 0 6px 20px rgba(12,20,32,0.35);
+  --shadow-lift:       0 1px 0 rgba(255,255,255,0.08) inset, 0 16px 38px rgba(12,20,32,0.45);
 
   --r-card:            1rem;
   --r-btn:             0.75rem;
   --shell:             440px;
 }
 
-/*  Dark only, like the portal. A per-property --accent overrides the steel
-    blue, and --accent-hi is derived from it below so a custom accent gets the
-    same ramp on buttons and meters instead of a mismatched steel highlight.
-
-    Note for a real deployment: move-in happens outdoors in daylight. Check this
-    on a phone in direct sun before it ships — a dark UI can lose to glare.  */
 [data-property] {
   --accent-hi: color-mix(in srgb, var(--accent) 74%, white);
 }
@@ -108,6 +109,10 @@
 
   /* ── Property header — the property's name, not ours ────────────────────── */
   .mi-head {
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--surface-frost) 62%, transparent),
+      transparent);
+    border-bottom: 1px solid var(--line);
     padding: 1.25rem 1.125rem 1rem;
     display: flex;
     align-items: center;
@@ -297,8 +302,8 @@
     display: inline-flex; align-items: center; gap: 0.3125rem;
     padding: 0.1875rem 0.5rem; border-radius: 0.4375rem;
     font-size: 0.6875rem; font-weight: 650; letter-spacing: 0.02em;
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
-    color: color-mix(in srgb, var(--accent) 82%, var(--text));
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: color-mix(in srgb, var(--accent-hi) 84%, var(--text));
     border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
   }
   .mi-badge[data-tone="ok"] {
@@ -320,7 +325,7 @@
     border: 1px solid var(--line);
     font-size: 0.8125rem; color: var(--text-2);
   }
-  .mi-hatch a { color: var(--accent); font-weight: 600; text-decoration: none; }
+  .mi-hatch a { color: var(--accent-hi); font-weight: 600; text-decoration: none; }
   .mi-hatch a:hover { text-decoration: underline; }
 
   /* ── Gate Guard, subordinate ────────────────────────────────────────────── */
