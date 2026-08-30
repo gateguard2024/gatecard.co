@@ -1,15 +1,7 @@
 {
   "framework": "nextjs",
   "crons": [
-    {
-      "//": "Roster reconciliation. Brivo does not push roster changes, so this is how a move-in is noticed. Every 15 minutes because same-day leases exist and an hourly window means someone stands at a gate that does not know them.",
-      "path": "/api/sync/brivo",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "//": "Release commissions past their hold window.",
-      "path": "/api/commissions/release",
-      "schedule": "0 9 * * *"
-    }
+    { "path": "/api/sync/brivo", "schedule": "*/15 * * * *" },
+    { "path": "/api/commissions/release", "schedule": "0 9 * * *" }
   ]
 }
