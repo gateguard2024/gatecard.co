@@ -20,6 +20,7 @@ export type JobKind =
   | 'gatecard_issue'
   | 'welcome_message'
   | 'service_order'
+  | 'shopify_order'
 
 export interface EnqueueArgs {
   kind: JobKind

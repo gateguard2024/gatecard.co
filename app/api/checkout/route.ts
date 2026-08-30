@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { configured } from '@/lib/env'
 import { supabaseAdmin } from '@/lib/supabase'
-import { createOrderPaymentIntent } from '@/lib/stripe'
+import { createOrderPaymentIntent, type ShipTo } from '@/lib/stripe'
 
 export const dynamic = 'force-dynamic'
 
@@ -96,6 +96,55 @@ export async function POST(req: Request) {
 
   const subtotal = priced.reduce((n, p) => n + p.unit * p.qty, 0)
 
+  // ── Where physical goods go ────────────────────────────────────────────────
+  // Dropship needs a real address and the flow never asks for one. We know it:
+  // the resident is moving into a specific unit at a known property. What we
+  // can't assume is that they can receive a parcel there before their move-in
+  // date, so the property decides — unit, or held at the leasing office.
+  const needsShipping = priced.some(p => p.kind === 'merch')
+  let shipTo: ShipTo | null = null
+  let shippingCents = 0
+
+  if (needsShipping) {
+    const { data: site } = await db.from('sites')
+      .select('name, address, city, state, zip, merch_ship_to, merch_shipping_cents')
+      .eq('id', body.siteId).maybeSingle()
+      .returns<{
+        name: string; address: string | null; city: string | null
+        state: string | null; zip: string | null
+        merch_ship_to: string | null; merch_shipping_cents: number | null
+      }>()
+
+    const { data: resident } = await db.from('residents')
+      .select('first_name, last_name, unit_number')
+      .eq('id', body.residentId).maybeSingle()
+      .returns<{ first_name: string; last_name: string; unit_number: string | null }>()
+
+    if (!site?.address || !site.city || !site.state || !site.zip) {
+      return NextResponse.json(
+        {
+          error: 'no_shipping_address',
+          detail: `${site?.name ?? 'This property'} has no complete address, so ` +
+                  'physical goods cannot be shipped. Set address, city, state and zip on the site.',
+        },
+        { status: 409 },
+      )
+    }
+
+    const toOffice = site.merch_ship_to === 'leasing_office'
+    shippingCents = site.merch_shipping_cents ?? 0
+    shipTo = {
+      name: `${resident?.first_name ?? ''} ${resident?.last_name ?? ''}`.trim(),
+      address1: site.address,
+      address2: toOffice
+        ? 'c/o Leasing Office'
+        : resident?.unit_number ? `Unit ${resident.unit_number}` : undefined,
+      city: site.city,
+      province: site.state,
+      zip: site.zip,
+    }
+  }
+
   const { data: order, error: orderErr } = await db
     .from('resident_orders')
     .insert({
@@ -104,7 +153,10 @@ export async function POST(req: Request) {
       session_id: body.sessionId ?? null,
       status: 'pending',
       subtotal_cents: subtotal,
-      total_cents: subtotal,
+      shipping_cents: shippingCents,
+      total_cents: subtotal + shippingCents,
+      ship_to: needsShipping ? (shipTo?.address2?.includes('Leasing') ? 'leasing_office' : 'unit') : null,
+      shipping_address: shipTo ? { ...shipTo } : null,
     })
     .select('id')
     .single()
@@ -127,6 +179,8 @@ export async function POST(req: Request) {
     siteId: body.siteId,
     residentId: body.residentId,
     lines: priced.map(p => ({ name: p.name, amountCents: p.unit, qty: p.qty })),
+    shippingCents,
+    shipTo,
   })
 
   await db.from('resident_orders')
@@ -136,6 +190,9 @@ export async function POST(req: Request) {
   return NextResponse.json({
     orderId: order.id,
     clientSecret: intent.client_secret,
-    totalCents: subtotal,
+    subtotalCents: subtotal,
+    shippingCents,
+    totalCents: subtotal + shippingCents,
+    shipTo,
   })
 }

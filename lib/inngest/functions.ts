@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { enqueue } from '@/lib/provisioning'
 import { computeCommissions, type CommissionRate, type PartyMap, type Tier, type ItemKind } from '@/lib/commission'
 import { transferCommission } from '@/lib/stripe'
+import { createFulfilmentOrder, shopifyAdminConfigured } from '@/lib/shopify'
 
 /**
  * Provisioning and payouts.
@@ -94,6 +95,22 @@ export const onOrderPaid = inngest.createFunction(
     // Physical credentials ship blank and inert; enrollment happens on first
     // tap at the gate (D5). The job records the pending enrollment so the
     // leasing office can see it.
+    // Physical goods go to the supplier through Shopify. Queued, not inline:
+    // the money is already taken, so this has to be retried and visible rather
+    // than lost in a failed webhook.
+    await step.run('queue-shopify-order', async () => {
+      const merch = items.filter(i => i.kind === 'merch')
+      if (!merch.length) return 0
+      await enqueue({
+        kind: 'shopify_order',
+        siteId, residentId,
+        payload: { orderId },
+        idempotencyKey: `shopify:${orderId}`,
+      })
+      await inngest.send({ name: 'order/fulfil', data: { orderId } })
+      return merch.length
+    })
+
     await step.run('queue-fulfilment', async () => {
       for (const it of items) {
         if (it.kind === 'credential') {
@@ -258,4 +275,107 @@ export const releaseCommissions = inngest.createFunction(
   },
 )
 
-export const functions = [onActivated, onOrderPaid, releaseCommissions]
+
+
+/**
+ * Place the Shopify order for a paid basket.
+ *
+ * Runs from the queue so a Shopify outage costs a retry rather than a resident
+ * who paid and never received anything. Idempotent twice over: the queue key is
+ * the order id, and the order row is only updated if shopify_order_id is still
+ * null.
+ */
+export const placeShopifyOrder = inngest.createFunction(
+  { id: 'place-shopify-order', retries: 5, triggers: [{ event: 'order/fulfil' }] },
+  async ({ event, step }) => {
+    const { orderId } = event.data as { orderId: string }
+    const db = supabaseAdmin()
+
+    if (!shopifyAdminConfigured()) {
+      // Not an error worth retrying into oblivion — it is a configuration gap,
+      // and it should be visible on the order rather than buried in retries.
+      await db.from('resident_orders')
+        .update({ fulfilment_error: 'Shopify admin token not configured' })
+        .eq('id', orderId)
+      return { skipped: 'shopify_not_configured' }
+    }
+
+    const placed = await step.run('create-order', async () => {
+      interface OrderRow {
+        id: string
+        resident_id: string
+        site_id: string
+        shopify_order_id: string | null
+        shipping_address: Record<string, string> | null
+        shipping_cents: number | null
+        stripe_payment_intent_id: string | null
+      }
+
+      const { data: order, error } = await db
+        .from('resident_orders')
+        .select('id, resident_id, site_id, shopify_order_id, shipping_address, ' +
+                'shipping_cents, stripe_payment_intent_id')
+        .eq('id', orderId)
+        .single()
+        .returns<OrderRow>()
+      if (error) throw error
+
+      // Already placed by an earlier attempt.
+      if (order.shopify_order_id) return { already: true as const }
+
+      const [{ data: items }, { data: resident }] = await Promise.all([
+        db.from('resident_order_items')
+          .select('ref_id, qty, kind').eq('order_id', orderId).eq('kind', 'merch')
+          .returns<{ ref_id: string | null; qty: number; kind: string }[]>(),
+        db.from('residents')
+          .select('first_name, last_name, email, phone').eq('id', order.resident_id).single()
+          .returns<{ first_name: string; last_name: string; email: string | null; phone: string | null }>(),
+      ])
+
+      const lines = (items ?? [])
+        .filter(i => i.ref_id)
+        .map(i => ({ variantId: i.ref_id!, quantity: i.qty }))
+      if (!lines.length) return { already: true as const }
+
+      const addr = order.shipping_address
+      if (!addr?.address1) {
+        throw new Error('Order has no shipping address; cannot fulfil physical goods')
+      }
+
+      const result = await createFulfilmentOrder({
+        orderId,
+        email: resident?.email ?? null,
+        phone: resident?.phone ?? null,
+        address: {
+          firstName: resident?.first_name ?? '',
+          lastName: resident?.last_name ?? '',
+          address1: addr.address1,
+          address2: addr.address2,
+          city: addr.city,
+          province: addr.province,
+          zip: addr.zip,
+        },
+        lines,
+        shippingCents: order.shipping_cents ?? 0,
+        stripePaymentIntentId: order.stripe_payment_intent_id ?? '',
+      })
+
+      await db.from('resident_orders').update({
+        shopify_order_id: result.shopifyOrderId,
+        shopify_order_name: result.name,
+        fulfilment_error: null,
+      }).eq('id', orderId).is('shopify_order_id', null)
+
+      return { already: false as const, ...result }
+    })
+
+    return placed
+  },
+)
+
+export const functions = [
+  onActivated,
+  onOrderPaid,
+  releaseCommissions,
+  placeShopifyOrder,
+]

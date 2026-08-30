@@ -35,6 +35,50 @@ inherit all three.
 That fourth row is the one people forget. Charge on Stripe, never create the
 Shopify order, and the resident pays while nothing ever ships.
 
+## How it works now
+
+```
+resident checks out in the portal
+        │
+        ▼
+Stripe PaymentIntent          ← one payment, one interface
+  goods + shipping
+  Stripe Tax from the destination
+        │  webhook: payment_intent.succeeded
+        ▼
+order marked paid  →  event: order/fulfil
+        │
+        ▼
+provisioning job 'shopify_order'   ← QUEUED, retried 5×, visible to staff
+        │
+        ▼
+Shopify orderCreate (financialStatus: PAID)
+        │
+        ▼
+supplier ships · tracking flows back through Shopify
+```
+
+**Why the Shopify call is queued and not inline in the webhook.** By the time it
+runs, the money is already taken. If it fails inline, the resident has paid and
+nothing ships, and the only trace is a 500 in a log. Queued, it retries, and a
+row appears in `unfulfilled_paid_orders` — which is the view someone should look
+at daily, because a row there is a resident who paid for something nobody is
+shipping.
+
+**Why not create the Shopify order first and charge second.** Every abandoned
+card would leave an unpaid order in Shopify to reconcile. Worse problem.
+
+**Idempotency, twice.** The queue key is `shopify:{orderId}`, and the order row
+is only updated `where shopify_order_id is null`. A replayed Stripe webhook or a
+retried job cannot produce two orders.
+
+**Shipping address.** Dropship needs one and the flow never asked. We know it —
+the resident is moving into a known unit at a known property — so it is derived
+rather than collected. `sites.merch_ship_to` decides between the unit and
+`c/o Leasing Office`, because a resident moving in on the 5th may not be able to
+receive a parcel at the unit before then. If a property has no complete address,
+checkout refuses with a clear reason rather than shipping into a void.
+
 ## Still to decide before checkout is wired
 
 1. **Tax.** Physical goods shipped to residents create nexus questions. Stripe
@@ -46,8 +90,11 @@ Shopify order, and the resident pays while nothing ever ships.
 3. **Refunds.** A refund has to happen in both systems, or Shopify shows paid
    and Stripe shows refunded forever.
 
-Until those are settled, `createFulfilmentOrder()` throws rather than silently
-half-working.
+Tax is the one that needs an owner. `automatic_tax` is not switched on yet —
+the PaymentIntent carries the shipping destination so Stripe Tax *can* compute
+it, but enabling it is a decision about your tax position, not a default I
+should pick. Until then the charge is goods plus flat shipping, with no tax
+line.
 
 ## Setting the store up
 

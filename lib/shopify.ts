@@ -147,20 +147,116 @@ export async function fetchStoreProducts(args: {
  * to ship; charging on Stripe and never creating an order means the resident
  * pays and nothing arrives.
  *
- * The order is created already paid, with the Stripe payment intent recorded,
- * so the two systems can be reconciled. Idempotent on the order id.
+ * Called from the provisioning queue, never inline from the Stripe webhook —
+ * if this fails, the money is already taken and the work has to be retried and
+ * visible, not lost in a 500.
  *
- * NOT WIRED YET — tax and shipping have to be settled first. See docs/SHOPIFY.md.
+ * The order is created already paid, referencing the Stripe payment intent, so
+ * Shopify never tries to collect and the two systems reconcile.
  */
-export async function createFulfilmentOrder(_args: {
+export interface FulfilmentLine { variantId: string; quantity: number }
+
+export interface FulfilmentAddress {
+  firstName: string
+  lastName: string
+  address1: string
+  address2?: string
+  city: string
+  province: string
+  zip: string
+  country?: string
+}
+
+const ORDER_MUTATION = `
+  mutation CreateOrder($order: OrderCreateOrderInput!) {
+    orderCreate(order: $order) {
+      order { id name }
+      userErrors { field message }
+    }
+  }
+`
+
+export async function createFulfilmentOrder(args: {
   orderId: string
   email: string | null
-  shippingAddress: Record<string, string>
-  lines: { variantId: string; quantity: number }[]
+  phone: string | null
+  address: FulfilmentAddress
+  lines: FulfilmentLine[]
+  shippingCents: number
   stripePaymentIntentId: string
-}): Promise<never> {
-  throw new Error(
-    'Shopify fulfilment orders are not wired yet. Settle tax (Stripe Tax vs ' +
-    'Shopify) and shipping rates first — see docs/SHOPIFY.md.',
+}): Promise<{ shopifyOrderId: string; name: string }> {
+  if (!shopifyAdminConfigured()) {
+    throw new Error('SHOPIFY_ADMIN_ACCESS_TOKEN is not set; cannot create the order.')
+  }
+  if (!args.lines.length) {
+    throw new Error('Refusing to create an empty Shopify order')
+  }
+
+  const res = await fetch(
+    `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/${API_VERSION}/graphql.json`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': process.env.SHOPIFY_ADMIN_ACCESS_TOKEN!,
+      },
+      body: JSON.stringify({
+        query: ORDER_MUTATION,
+        variables: {
+          order: {
+            email: args.email ?? undefined,
+            phone: args.phone ?? undefined,
+            // Already collected. Shopify must not chase the resident for money
+            // Stripe has taken.
+            financialStatus: 'PAID',
+            lineItems: args.lines.map(l => ({
+              variantId: l.variantId,
+              quantity: l.quantity,
+            })),
+            shippingAddress: {
+              firstName: args.address.firstName,
+              lastName: args.address.lastName,
+              address1: args.address.address1,
+              address2: args.address.address2,
+              city: args.address.city,
+              provinceCode: args.address.province,
+              zip: args.address.zip,
+              countryCode: args.address.country ?? 'US',
+            },
+            shippingLines: args.shippingCents > 0
+              ? [{ title: 'Shipping', priceSet: { shopMoney: {
+                  amount: (args.shippingCents / 100).toFixed(2), currencyCode: 'USD' } } }]
+              : [],
+            // The thread back to Stripe. Without this the two systems cannot be
+            // reconciled when something goes wrong at 2am.
+            tags: ['gatecard', `order:${args.orderId}`],
+            note: `GateCard order ${args.orderId} · Stripe ${args.stripePaymentIntentId}`,
+          },
+        },
+      }),
+    },
   )
+
+  if (!res.ok) {
+    throw new Error(`Shopify admin ${res.status}: ${(await res.text()).slice(0, 300)}`)
+  }
+
+  const json = (await res.json()) as {
+    data?: { orderCreate?: {
+      order?: { id: string; name: string }
+      userErrors?: { field: string[]; message: string }[]
+    } }
+    errors?: unknown
+  }
+
+  const errs = json.data?.orderCreate?.userErrors
+  if (errs?.length) {
+    throw new Error(`Shopify rejected the order: ${errs.map(e => e.message).join('; ')}`)
+  }
+  const order = json.data?.orderCreate?.order
+  if (!order) {
+    throw new Error(`Shopify returned no order: ${JSON.stringify(json).slice(0, 300)}`)
+  }
+
+  return { shopifyOrderId: order.id, name: order.name }
 }

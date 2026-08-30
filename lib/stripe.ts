@@ -41,14 +41,30 @@ export interface CheckoutLine {
  * The idempotency key is the order id, so a resident double-tapping Check out
  * cannot produce two charges.
  */
+export interface ShipTo {
+  name: string
+  address1: string
+  address2?: string
+  city: string
+  province: string
+  zip: string
+}
+
 export async function createOrderPaymentIntent(args: {
   orderId: string
   siteId: string
   residentId: string
   lines: CheckoutLine[]
+  shippingCents?: number
   customerEmail?: string | null
+  /**
+   * Required when the basket contains physical goods: Stripe Tax needs a
+   * destination, and so does the dropship supplier.
+   */
+  shipTo?: ShipTo | null
 }): Promise<Stripe.PaymentIntent> {
-  const amount = args.lines.reduce((n, l) => n + l.amountCents * l.qty, 0)
+  const goods = args.lines.reduce((n, l) => n + l.amountCents * l.qty, 0)
+  const amount = goods + (args.shippingCents ?? 0)
   if (amount <= 0) throw new Error('Refusing to charge a zero-value order')
 
   return stripe().paymentIntents.create(
@@ -58,6 +74,26 @@ export async function createOrderPaymentIntent(args: {
       automatic_payment_methods: { enabled: true },
       receipt_email: args.customerEmail ?? undefined,
       description: args.lines.map(l => `${l.qty}× ${l.name}`).join(', '),
+
+      // Physical goods shipped across state lines create a tax position. Stripe
+      // Tax computes it from the destination; a flat guess would be a liability
+      // rather than a bug.
+      ...(args.shipTo
+        ? {
+            shipping: {
+              name: args.shipTo.name,
+              address: {
+                line1: args.shipTo.address1,
+                line2: args.shipTo.address2,
+                city: args.shipTo.city,
+                state: args.shipTo.province,
+                postal_code: args.shipTo.zip,
+                country: 'US',
+              },
+            },
+          }
+        : {}),
+
       metadata: {
         order_id: args.orderId,
         site_id: args.siteId,

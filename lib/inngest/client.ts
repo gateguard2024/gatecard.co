@@ -15,6 +15,7 @@ export type MoveInEvents = {
   'order/paid': {
     orderId: string; siteId: string; residentId: string; chargeId: string
   }
+  'order/fulfil': { orderId: string }
   'commissions/release': Record<string, never>
 }
 
