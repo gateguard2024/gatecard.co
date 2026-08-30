@@ -1,127 +1,249 @@
 # GateCard — Agent Context
 
-## APPLICATION LANDSCAPE (read this first — get it right every time)
-
-GateGuard runs four distinct applications. Never confuse them.
-
-| App | URL | Repo | Purpose |
-|-----|-----|------|---------|
-| SOC Operations | ggsoc.com | gateguard-dispatch-ui | Call center for SOC staff. Live production. DO NOT BREAK. |
-| Visitor Kiosk (legacy) | stonegate-visitor.vercel.app | (separate) | Single-property Brivo+Twilio kiosk. Being replaced by gatecard.co. No new features. |
-| GateCard | gatecard.co | gatecard.co (THIS REPO) | Multi-tenant visitor/resident kiosk. Replaces stonegate. |
-| Dealer Portal | portal.gateguard.co | gateguard-portal | Dealer ops + field tech tool. Equipment library, KB, AI diagnostic. |
+> **v8.31 reset.** This repo was a multi-tenant visitor kiosk. It is now the
+> **Nexus Resident Move-In Portal**. The visitor app lives elsewhere — see below.
+> Previous state is on the `visitor-archive` branch and the `pre-v8.31-visitor` tag.
 
 ---
 
-## THIS REPO — gatecard.co
+## APPLICATION LANDSCAPE — get this right every time
 
-**Who uses it:** Visitors, residents, and leasing staff at multifamily properties. NOT dealers. NOT SOC agents.
+| App | URL | Repo | Purpose |
+|-----|-----|------|---------|
+| SOC Operations | ggsoc.com | GGSOC | Call center for SOC staff. Live production. DO NOT BREAK. |
+| Dealer Portal (Nexus) | portal.gateguard.co | gateguard-portal | Dealer ops, CRM, quoting, field service, billing. 128 Supabase tables. |
+| Corporate site | gateguard.co | gateguard-web | Marketing. Currently a bare create-next-app scaffold. |
+| Visitor kiosks | one Vercel deploy per property | `*-Visitor` repos | Next 14, env-var config, Brivo + Twilio direct, no Supabase. One repo per property. |
+| **Resident Move-In Portal** | gatecard.co | **THIS REPO** | Resident move-in: identity, credentials, parking, services, store. |
 
-**Relationship to other apps:**
-- Companion to **ggsoc.com** (SOC monitors events from gatecard.co)
-- Companion to **portal.gateguard.co** (dealers configure properties; gatecard.co calls portal for Brivo gate opens)
-- **NOT** the SOC dashboard — that is ggsoc.com
+**There is no visitor flow in this repo any more.** Visitors are served by the
+per-property repos (Stonegate-Visitor, East-Ponce-Village-Visitor, Flint-River-Visitor,
+Lyv-Buckhead-Visitor, Rhythm-Camp-Creek-Visitor, Villages-on-Riverwalk-Visitors).
+Do not re-add directory search, masked calls, or gate-open flows here.
 
-**Multi-site architecture:** One deployment serves all properties. Site is identified by `siteSlug` in the URL path (`/parkview`, `/stonegate`). Residents and staff of one property never see another property's data. Feature flags are stored in `features jsonb` on the `sites` table — each property enables only the modules they pay for.
+**Who uses this app:** residents moving into a Gate Guard property. Not dealers, not
+SOC agents, not visitors.
 
-**Integration tiers:**
-- **Tier 1 (Brivo + Twilio):** Mirrors stonegate-visitor.vercel.app exactly. Visitor calls resident, resident presses 1, Brivo opens gate.
-- **Tier 2 (Ubiquiti callbox):** Sync device database with Ubiquiti. Ubiquiti callbox triggers the same Twilio/Brivo flow via webhook.
+---
 
-## What does NOT belong here
-- SOC monitoring, alarm feeds, camera dashboards → ggsoc.com
-- Equipment library, PDF manuals, AI diagnostic wizard → portal.gateguard.co
-- Dealer CRM, quotes, work orders → portal.gateguard.co
-- Field tech tool → portal.gateguard.co/tech
+## THE BUSINESS MODEL THIS SERVES
 
-## Tech Stack
+Gate Guard's new play is **resident-funded**: bill the *resident* at move-in and at
+renewal rather than the property. The program becomes free to the property and hands
+back their access bills, fob spend and gate repair budget.
+
+Position this **indirectly** in any copy — sell the outcome ("no gate line item",
+"self-funding"), never the mechanics of who gets billed.
+
+Six-tier revenue hierarchy: corporate → master agent → master dealer →
+(sales partner / install dealer / service dealer) → client.
+
+---
+
+## LOCKED DECISIONS — do not re-litigate
+
+Decided with rationale recorded. If you think one is wrong, argue against the recorded
+reasoning; do not restate the options.
+
+### D1 — Platform: build, don't buy
+Next.js + Supabase + Clerk. Stripe as the money layer. Shopify headless **only** as the
+dropship merch catalog.
+
+*Why not Shopify as the spine:* the core object is a fee bound to a lease — prorated at
+move-in, tied to a unit, ends at move-out, re-bills at renewal. Shopify subscription apps
+assume consumer replenishment and cannot model resident → unit → property → lease. That
+relationship would end up in customer tags and metafields and break as properties grow.
+
+*Why Shopify still earns a place:* supplier routing, tracking sync, returns and
+multi-state sales tax on physical goods is months of undifferentiated work.
+
+### D2 — The parking + access fee is mandatory, written into the lease
+Not resident opt-in.
+
+### D3 — Screens 01-03 take no payment. How the mandatory fee is collected is OPEN.
+
+**Status: unresolved. Do not build a collection path for the mandatory fee yet.**
+
+An earlier concept had the parking + access fee posting to the resident's rent ledger,
+Gate Guard invoicing the property, the property collecting. **Gate Guard does not have
+access to the rent ledger.** That concept came from a different discussion and was never
+validated. It is recorded here only so it is not re-proposed as settled.
+
+What survives from it, and still governs the UX:
+
+1. **Screens 01-03 have no checkout.** Identity, credential and parking complete with no
+   payment of any kind. This is a hard UX constraint regardless of how the fee is
+   eventually collected.
+2. **Non-payment must never affect gate access.** Denying gate or building access for
+   non-payment reads as a self-help lockout or utility shutoff in most states - illegal,
+   and it is the landlord's remedy, not a vendor's. **There is no code path from a failed
+   charge to a revoked credential.** This holds under every collection model.
+3. Gate Guard should not become a consumer collections operation - no dunning, no
+   chargeback handling on the mandatory fee.
+
+**Card payments are for optional items only:** fobs, key tags, store merch, renters
+insurance, DirecTV, security deposit and monitoring.
+
+When the collection question reopens, the live options are: property invoicing with the
+property posting manually, a PMS-side integration if one becomes reachable, or direct
+resident card billing - which reintroduces (1) and (3) and needs the lockout constraint
+enforced explicitly.
+
+### D4 — Revenue share via Stripe Connect, ledger in Supabase
+- **Separate charges and transfers**, not application fees — up to four parties per
+  transaction. Charge on the platform account, then N transfers, each tagged with party
+  and tier in metadata.
+- **Supabase owns the commission ledger.** Stripe is the movement layer, not the source
+  of truth. Connect cannot answer "what does this master agent earn this month."
+- **Express accounts** for dealers — Stripe handles KYC and 1099s.
+- **Hold commissions ~30 days** before release, so refunds and chargebacks don't require
+  clawback logic.
+
+### D5 — Fobs and key tags are credentials, not merch
+A fob must be enrolled in Brivo against a named resident at a property; no dropship
+supplier can do that. **Ship blank and inert, enroll on first tap at the gate.** Same
+code path whether ordered on the access screen or in the store. The resident cannot tell
+the two order types apart and shouldn't; the order handler must.
+
+### D6 — Third-party services are not carts
+- **Internet / DirecTV:** order intake and commission tracking. Pricing and provisioning
+  live with the carrier. Building a cart for DirecTV is a trap.
+- **Security system:** a quote flow — configurator → deposit + monitoring subscription →
+  scheduled install. This is FORGE (the Nexus quote builder) pointed at a resident
+  instead of a property. **Reuse it, don't rebuild.**
+- **Renters insurance:** likely the highest-attach item wherever the lease mandates
+  coverage.
+
+### D7 — The offer engine is the actual product
+A per-property rules table computing what a given resident may see. East Ponds has a bulk
+internet ROE, so internet cannot be sold there — the card becomes an activation helper
+instead. Another property excludes DirecTV. Parking tiers, prices, counts and whether LPR
+exists all vary.
+
+**Never hardcode this and never scatter it through conditionals in the UI.** It is a
+first-class table. It is also the strongest argument for building rather than buying.
+
+### D8 — Provisioning is a durable job queue
+Inngest. Trigger: activation or payment succeeds → issue Brivo credential, assign parking
+space, generate GateCard, send welcome. Must be **idempotent, retriable, and expose a
+status screen the leasing office can read.**
+
+---
+
+## PMS INTEGRATION — read before proposing anything
+
+**Gate Guard does not integrate with property management systems. Brivo does.**
+
+Brivo already carries certified connectors to RealPage, Entrata, Yardi and Rent Manager.
+Read the roster out of Brivo; write credentials back into it. One integration surface,
+and it's the one Gate Guard is already deepest in.
+
+A prior session burned a cycle designing around Yardi's Interface Partner program
+(requires two years in business, programming experience, and three active Voyager clients
+before you may even apply). That entire sequencing dissolves. Do not revisit it.
+
+What still holds:
+- **Brivo is a credential sync, not a rent roll.** Name, unit, move-in/move-out dates.
+  Very likely no lease financial terms, rent amounts or ledger balances.
+- **Brivo has no financial object**, so it cannot post a charge to a ledger. D3 therefore
+  runs on manual property invoicing. That is correct for v1.
+- The PMS → Brivo sync is **one-way, PMS as master**. Plates, parking assignments and
+  purchases do not flow back. If a property wants them in Yardi, that is a report you
+  generate, not a sync.
+- The Brivo ↔ PMS connector is licensed **per property account**. Verify per property;
+  it is a deployment prerequisite, not an assumption.
+
+---
+
+## TWO MONEY RAILS - never cross them
+
+| | Mandatory (parking + access) | Optional (services, security, store) |
+|---|---|---|
+| Path | **OPEN - see D3.** No ledger access. Not built. | Resident -> checkout -> Stripe Connect -> dealer tiers + Gate Guard |
+| Instrument | Undecided | Card on file |
+| Failure mode | Undecided | Retry, dun, or drop the item |
+| Never | Affects gate access | Affects gate access |
+
+The rails stay separate whatever D3 resolves to. Optional-item failures drop the item;
+they never touch a credential.
+
+---
+
+## BUILD ORDER - UX FIRST
+
+**Current phase: UX only.** Build and agree the six screens against mock data before
+wiring anything. No Supabase queries, no Stripe calls, no Brivo reads, no Clerk gating
+until the screens are signed off.
+
+Mock data lives in `lib/mock/`. Every screen reads from the same typed shapes the real
+backend will satisfy, so wiring is a swap of the data source, not a rewrite.
+
+---
+
+## THE SIX SCREENS
+
+Mobile-first. Move-in happens on a phone in a parking lot, not at a desk. Desktop layouts
+are not designed yet.
+
+| # | Route | Purpose | Checkout? |
+|---|-------|---------|-----------|
+| 01 | `/[siteSlug]/move-in` | Confirm identity, unit, move-in date (pre-filled from Brivo); one editable field (mobile); explicit "nothing to pay here" | No |
+| 02 | `/[siteSlug]/move-in/access` | Credential choice — phone key (free, default), fob, key tag; household members each get their own link; GateCard photo deferred | Card, fobs only |
+| 03 | `/[siteSlug]/move-in/parking` | Space tier with real inventory counts, vehicle and plate; upgrades post to ledger | No |
+| 04 | `/[siteSlug]/move-in/services` | Offer-engine filtered; prominent skip | Card |
+| 05 | `/[siteSlug]/move-in/store` | Dropship merch + credential items; the only real cart | Card |
+| 06 | `/[siteSlug]/move-in/confirmation` | Grouped by **state** — working now / on the way / scheduled — not by product; both rails shown separately; Add to Wallet is the only button | — |
+
+### UX principles
+- **The property owns the header.** Gate Guard is subordinate — the resident's
+  relationship is with their community. Property name and accent are per-property tokens.
+- **Never block activation on anything optional.** A declined fob, a missing photo, an
+  abandoned session after screen 02 — access must already be live.
+- **"Not your unit?" routes to the leasing office**, so a stale sync is never a dead end.
+- **Screens 01–03 must complete on a bad connection, in under four minutes, with no
+  payment.** Test every proposed feature against this.
+- **Support routes to the property, not to Gate Guard.** Taking resident tier-one support
+  undercuts the property relationship and buries you in tickets.
+
+### Follow-up sequence — most revenue arrives here, not on screen 04
+Day 0 confirmation SMS · Day 3 "did it work?" · Day 10 insurance nudge (only where the
+lease requires it) · Day 30 settled-in security offer · Month 10 renewal re-open ·
+Move-out revoke and settle.
+
+### Metrics
+Activation completion (01–03) is the only one that really matters. Wallet-add rate
+predicts support load. Time from link to first unlock is product health. Also: attach rate
+per screen, manual-add rate (sync quality), leasing tickets per move-in (renewal risk).
+
+---
+
+## UNVERIFIED — check before building on these
+
+1. **Does the Brivo sync carry resident email and/or phone?** If not there is no magic
+   link and the entry point collapses; fallback is a QR code at key handover. **Verify
+   field-by-field against a live Brivo account, not the docs.** Highest-risk assumption
+   in the design.
+2. **Does the property's Brivo account have its PMS connector enabled?** Licensed per
+   account.
+3. **Sync interval, and what move-out carries.** Nightly misses same-day leases. Move-out
+   drives stopping recurring billing.
+4. **Will property managers accept manual ledger posting from an invoice?** All of D3
+   rests on this.
+5. **Does a mandatory lease-required access fee read as rent in the jurisdiction?** Some
+   states treat mandatory ancillary fees as rent. **Needs counsel — nothing here is legal
+   advice.**
+6. **Does Brivo's API expose mobile credential issuance and wallet provisioning?** The
+   confirmation screen's most valuable action depends on it.
+
+---
+
+## TECH NOTES
+
 - Next.js 16 App Router, TypeScript, React 19
-- Tailwind CSS v4 (config via globals.css @theme — no tailwind.config.ts)
-- Supabase (same project as portal — shared schema)
-- Twilio (masked calls: visitor calls resident without revealing either number)
-- Eagle Eye Networks (EEN snapshot on visitor arrival)
+- Tailwind v4 — tokens in `app/globals.css` `@theme`, no `tailwind.config.ts`
+- Clerk organizations map to properties; Supabase RLS scoped by property
+- Design: near-black charcoal (NOT navy), Montserrat, gold accent, mobile-first,
+  `max-w-[430px]` centered, safe-area insets. Per-property accent overrides the gold.
 
-## Routing
-- `/[siteSlug]` — visitor entry hub for a property (QR code destination)
-- `/[siteSlug]/directory` — resident directory + search
-- `/[siteSlug]/call` — active call screen (query: ?resident=ID&name=NAME&unit=UNIT)
-- `/[siteSlug]/packages` — package room entry flow
-- `/[siteSlug]/leasing` — leasing office call
-- `/[siteSlug]/emergency` — emergency flow
-- `/resident` — resident dashboard (protected, auth TBD)
-
-## Key API Routes
-- `POST /api/call/initiate` — start masked Twilio call to resident
-- `POST /api/call/twiml` — Twilio webhook: IVR (press 1 to open gate)
-- `GET  /api/call/status?callSid=` — poll Twilio call status
-- `POST /api/gate/open` — open gate via Brivo (calls portal API)
-- `POST /api/access-events` — log visitor event to Supabase
-- `GET  /api/residents?siteSlug=` — fetch resident directory for a site
-- `GET  /api/sites/[slug]` — fetch site/property info
-
-## Supabase Tables Used
-- `residents` — unit, name, phone (hashed), active status
-- `access_events` — visitor logs, call SID, photo_url, outcome, entry_type
-- `sites` (or `properties`) — property info, gate IDs, EEN camera IDs
-
-## Design System
-Dark navy (NOT black). See globals.css @theme for tokens.
-- Background: #080E1A
-- Surface: #0C1827
-- Primary blue: #2563EB
-- Mobile-first, max-w-[430px] centered, safe-area insets
-
-## Visitor Call Flow
-1. Visitor scans QR → lands on /[siteSlug]
-2. Taps "Call Resident" → goes to /[siteSlug]/directory
-3. Searches and taps a resident → navigates to /[siteSlug]/call?resident=ID
-4. Frontend calls POST /api/call/initiate → Twilio dials resident
-5. Page polls GET /api/call/status every 2s
-6. Resident answers → hears IVR: "Press 1 to open gate, 2 to decline"
-7. Resident presses 1 → /api/call/twiml calls /api/gate/open
-8. Gate opens via Brivo → access_event logged → page shows success
-
-## Routing (updated)
-- `/[siteSlug]` — welcome hub (2 tiles: Deliveries, Visitors & Leasing + emergency corner btn)
-- `/[siteSlug]/visit` — combined Visitors & Leasing landing (→ directory or leasing)
-- `/[siteSlug]/directory` — resident search
-- `/[siteSlug]/call` — active call screen
-- `/[siteSlug]/packages` — carrier selection for package room
-- `/[siteSlug]/leasing` — leasing office direct dial
-- `/[siteSlug]/emergency` — emergency (911 + SOC)
-- `/resident` — resident dashboard (Sprint 2, magic-link auth)
-
-## KORE Wireless Super SIM
-Twilio's IoT/Super SIM was acquired by KORE Wireless in June 2023.
-API architecture is nearly identical but auth and base URL changed.
-
-**Base URL:** `https://supersim.api.korewireless.com/v1`
-**Auth:** OAuth 2.0 client credentials
-  - Token URL: `https://api.korewireless.com/api-services/v1/auth/token`
-  - Header: `Authorization: Bearer <token>`
-  - NOT Twilio Basic Auth
-
-**Key resources:**
-- `Sim` — the physical/eSIM card; set `Status=active` to activate
-- `Fleet` — config group for SIMs; every active SIM needs one
-- `Network Access Profile (NAP)` — applied at Fleet level, controls which carriers
-
-**Activating a SIM:**
-1. POST to `/v1/Sims/{SID}` with `Fleet=HF...`, `Status=active`, optional `CallbackUrl`
-2. API returns `202 Accepted` (async)
-3. KORE sends final status to `CallbackUrl` once network activation is complete
-
-**Device config (TRB141):**
-- APN: `super`
-- Username: blank
-- Password: blank
-- Data Roaming: **ENABLED** (required — SIM uses multiple IMSIs)
-
-**Env vars:** `KORE_CLIENT_ID`, `KORE_CLIENT_SECRET`, `KORE_FLEET_SID`
-**Helper:** `lib/kore-sim.ts` — `getKoreToken()`, `activateSim()`, `deactivateSim()`, `getSim()`, `listSims()`
-
-## Sprint Schedule
-- Sprint 1 (Apr 30 – May 6): Visitor portal live, access_events, demo env
-- Sprint 2 (May 7 – May 27): Trade show demo, TRB141 gate relay
-- Sprint 3 (May 28 – Jun 17): Resident billing, PMS sync
-- Sprint 4 (Jun 18 – Jun 30): QA, prod deploy, dealer onboard
+⚠️ **All prices, tier names, counts and dates currently in the code are illustrative
+placeholders. None came from Russel.** Do not treat them as real.
