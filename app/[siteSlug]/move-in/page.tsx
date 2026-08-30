@@ -1,7 +1,10 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
+
 import { StepRail, StepFooter, NotYourUnit } from '@/components/chrome'
 import { useMoveIn } from './state'
+import { formatMoveInDate } from '@/lib/dates'
 
 /**
  * 01 · Arrival
@@ -18,9 +21,18 @@ export default function Arrival() {
   const siteSlug = ctx.property.slug
   const { property, resident } = ctx
 
-  const moveIn = new Date(resident.moveInDate).toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric',
-  })
+  const moveIn = formatMoveInDate(resident.moveInDate)
+
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Autofill writes straight to the DOM. Without this the field looks filled
+  // while state is still empty, and the button stays disabled for no visible
+  // reason — which reads as the form being broken.
+  useEffect(() => {
+    const el = inputRef.current
+    if (el && el.value && !s.mobile) set('mobile', format(el.value))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const digits = s.mobile.replace(/\D/g, '').slice(0, 10)
   const ready = digits.length === 10
@@ -73,6 +85,8 @@ export default function Arrival() {
           <label className="mi-label" htmlFor="mobile">Your mobile number</label>
           <input
             id="mobile"
+            ref={inputRef}
+            onBlur={e => { if (e.target.value !== s.mobile) set('mobile', format(e.target.value)) }}
             className="mi-input"
             type="tel"
             inputMode="numeric"

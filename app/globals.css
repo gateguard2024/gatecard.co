@@ -24,40 +24,44 @@
   --accent-hi:         #A4D2E8;   /* links and text — 5.6:1 on surface */
   --accent-ink:        #0C1C27;   /* 10.7:1 on accent-hi */
 
-  /* ── Ground ──────────────────────────────────────────────────────────────
-     Mid slate, not near-black. Region-averaged from portal.gateguard.co:
-     app ground #394A5C, frosted panels #5A6576, cards #323D4E. The portal
-     puts cards DARKER than its frosted section panel; in a single mobile
-     column that reads inverted, so cards sit a step lighter than the ground
-     here and the header keeps the frosted-panel tone.  */
-  --bg:                #35455A;
+  /* ── Ground ────────────────────────────────────────────────────────────────
+     RANGE, not just hue. The first pass put ground and cards 1.12:1 apart,
+     which is why it read washed out — nothing separated from anything.
+
+     The portal itself spans a wide range: #1D2936 wells up to #5A6576 frosted
+     panels. Matching that means the ground sits BELOW the cards, wells sit
+     below the ground, and the header keeps the frosted tone above everything.
+     Ground→card is now 1.24:1, card→well 1.45:1, well→header 2.10:1.  */
+  --bg:                #2B3746;
   --bg-grad:
-    radial-gradient(ellipse 130% 60% at 50% -12%, #445468 0%, #2F3E51 68%);
+    radial-gradient(ellipse 130% 62% at 50% -14%, #38485D 0%, #253040 66%);
   --bg-grid:
     linear-gradient(rgba(226,238,250,0.022) 1px, transparent 1px),
     linear-gradient(90deg, rgba(226,238,250,0.022) 1px, transparent 1px);
   --bg-grid-size:      52px 52px;
 
-  --surface:           #3C4C61;
-  --surface-2:         #46566C;
-  --surface-frost:     #566274;   /* the portal's lighter frosted panel */
-  --surface-sunk:      #2E3C4E;
+  --surface:           #35455A;   /* cards sit ABOVE the ground */
+  --surface-2:         #3F5167;
+  --surface-frost:     #4C5D72;   /* the portal's lighter frosted panel */
+  --surface-sunk:      #222C39;   /* wells, price pills, progress tracks */
 
-  /* Every value below is contrast-checked against --surface and --bg. */
-  --text:              #EEF3F9;   /* 8.1:1  */
-  --text-2:            #B3C0CF;   /* 4.9:1  */
-  --text-3:            #AEBCCA;   /* 4.7:1 — small caption text, so it has to
-                                     clear 4.5 rather than sit at 3:1 */
+  /* Contrast-checked against BOTH --surface and --bg. */
+  --text:              #EEF3F9;   /* 8.8:1 on card  */
+  --text-2:            #AFBDCC;   /* 5.1:1 on card  */
+  --text-3:            #A8B6C6;   /* 4.7:1 on card — small captions have to
+                                     clear 4.5, not sit at 3:1 */
 
-  --line:              rgba(226,238,250,0.13);
-  --line-2:            rgba(226,238,250,0.24);
+  /* Stronger than the first pass. Borders are doing real work now that the
+     surfaces are closer in hue than in lightness. */
+  --line:              rgba(226,238,250,0.14);
+  --line-2:            rgba(226,238,250,0.26);
 
   --ok:                #5FD3A8;
   --warn:              #F2C24B;
   --stop:              #F0707F;
 
-  --shadow-card:       0 1px 0 rgba(255,255,255,0.06) inset, 0 6px 20px rgba(12,20,32,0.35);
-  --shadow-lift:       0 1px 0 rgba(255,255,255,0.08) inset, 0 16px 38px rgba(12,20,32,0.45);
+  --shadow-card:       0 1px 0 rgba(255,255,255,0.07) inset, 0 8px 24px rgba(8,14,22,0.42);
+  --shadow-lift:       0 1px 0 rgba(255,255,255,0.09) inset, 0 18px 44px rgba(8,14,22,0.52);
 
   --r-card:            1rem;
   --r-btn:             0.75rem;
@@ -258,7 +262,14 @@
   }
   .mi-btn:hover { filter: brightness(1.06); }
   .mi-btn:active { transform: translateY(1px); }
-  .mi-btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
+  .mi-btn:disabled {
+    background: var(--surface-2);
+    color: var(--text-3);
+    box-shadow: none;
+    opacity: 1;
+    cursor: not-allowed;
+    filter: none;
+  }
 
   .mi-btn-2 {
     background: var(--surface-2); color: var(--text);
@@ -281,7 +292,11 @@
   .mi-foot {
     position: sticky; bottom: 0;
     padding: 0.875rem 1.125rem calc(0.875rem + env(safe-area-inset-bottom, 0));
-    background: linear-gradient(to top, var(--bg) 62%, transparent);
+    background: linear-gradient(to top,
+      var(--bg) 0 58%,
+      color-mix(in srgb, var(--bg) 82%, transparent) 100%);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 
   /* ── Confirmation state groups ──────────────────────────────────────────── */
