@@ -1,7 +1,5 @@
 'use client'
 
-import { useParams } from 'next/navigation'
-import { getMoveInContext } from '@/lib/mock/east-ponds'
 import { StepRail, StepFooter, NotYourUnit } from '@/components/chrome'
 import { useMoveIn } from './state'
 
@@ -16,9 +14,8 @@ import { useMoveIn } from './state'
  * they are about to be charged abandons.
  */
 export default function Arrival() {
-  const { siteSlug } = useParams<{ siteSlug: string }>()
-  const ctx = getMoveInContext(siteSlug)!
-  const { s, set } = useMoveIn()
+  const { ctx, s, set } = useMoveIn()
+  const siteSlug = ctx.property.slug
   const { property, resident } = ctx
 
   const moveIn = new Date(resident.moveInDate).toLocaleDateString('en-US', {

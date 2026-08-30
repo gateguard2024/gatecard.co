@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, type ReactNode } from 'react'
-import type { CredentialKind, VehicleDraft } from '@/lib/types'
+import type { CredentialKind, VehicleDraft, MoveInContext } from '@/lib/types'
 
 /**
  * Move-in selections, held in the layout so they survive navigation between
@@ -30,15 +30,24 @@ const EMPTY: MoveInState = {
 }
 
 const Ctx = createContext<{
+  /** Property, resident and catalogs — loaded on the server, mock or real. */
+  ctx: MoveInContext
   s: MoveInState
   set: <K extends keyof MoveInState>(k: K, v: MoveInState[K]) => void
 } | null>(null)
 
-export function MoveInProvider({ children }: { children: ReactNode }) {
-  const [s, setS] = useState<MoveInState>(EMPTY)
+export function MoveInProvider(
+  { ctx, children }: { ctx: MoveInContext; children: ReactNode },
+) {
+  const [s, setS] = useState<MoveInState>(() => ({
+    ...EMPTY,
+    // Default to whatever the property marks as included.
+    parkingTierId: ctx.parkingTiers.find(t => t.included)?.id ?? '',
+    credential: ctx.credentials.find(c => c.isDefault)?.kind ?? 'phone',
+  }))
   const set = <K extends keyof MoveInState>(k: K, v: MoveInState[K]) =>
     setS(prev => ({ ...prev, [k]: v }))
-  return <Ctx.Provider value={{ s, set }}>{children}</Ctx.Provider>
+  return <Ctx.Provider value={{ ctx, s, set }}>{children}</Ctx.Provider>
 }
 
 export function useMoveIn() {

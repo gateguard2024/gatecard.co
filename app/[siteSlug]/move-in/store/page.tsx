@@ -1,8 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
-import { getMoveInContext } from '@/lib/mock/east-ponds'
 import { StepRail, money } from '@/components/chrome'
 import { useMoveIn } from '../state'
 
@@ -17,9 +15,8 @@ import { useMoveIn } from '../state'
  * dropship supplier (D5). That distinction is in the data, never in the UI.
  */
 export default function Store() {
-  const { siteSlug } = useParams<{ siteSlug: string }>()
-  const ctx = getMoveInContext(siteSlug)!
-  const { s, set } = useMoveIn()
+  const { ctx, s, set } = useMoveIn()
+  const siteSlug = ctx.property.slug
 
   const qty = (id: string) => s.cart[id] ?? 0
   const bump = (id: string, d: number) => {

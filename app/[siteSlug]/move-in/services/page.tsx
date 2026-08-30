@@ -1,8 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
-import { getMoveInContext } from '@/lib/mock/east-ponds'
 import { StepRail, Check, money } from '@/components/chrome'
 import { useMoveIn } from '../state'
 
@@ -22,9 +20,8 @@ import { useMoveIn } from '../state'
  * Nothing about East Ponds is coded here. Change the table, change the screen.
  */
 export default function Services() {
-  const { siteSlug } = useParams<{ siteSlug: string }>()
-  const ctx = getMoveInContext(siteSlug)!
-  const { s, set } = useMoveIn()
+  const { ctx, s, set } = useMoveIn()
+  const siteSlug = ctx.property.slug
 
   const offers = ctx.services.filter(o => o.mode !== 'unavailable')
 

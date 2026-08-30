@@ -1,7 +1,5 @@
 'use client'
 
-import { useParams } from 'next/navigation'
-import { getMoveInContext } from '@/lib/mock/east-ponds'
 import { StepRail, money } from '@/components/chrome'
 import { useMoveIn } from '../state'
 import type { ConfirmationItem, ItemState } from '@/lib/types'
@@ -25,9 +23,8 @@ const GROUPS: { state: ItemState; label: string }[] = [
 ]
 
 export default function Confirmation() {
-  const { siteSlug } = useParams<{ siteSlug: string }>()
-  const ctx = getMoveInContext(siteSlug)!
-  const { s } = useMoveIn()
+  const { ctx, s } = useMoveIn()
+  const siteSlug = ctx.property.slug
 
   const tier = ctx.parkingTiers.find(t => t.id === (s.parkingTierId || 'surface'))
 

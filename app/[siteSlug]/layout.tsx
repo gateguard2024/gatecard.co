@@ -1,17 +1,17 @@
 import { notFound } from 'next/navigation'
-import { getMoveInContext } from '@/lib/mock/east-ponds'
+import { loadMoveInContext } from '@/lib/data'
 import { PropertyHeader, GateGuardMark } from '@/components/chrome'
 
 /**
  * Property shell. The accent is injected here as a CSS variable, so every
  * chromatic thing downstream reads --accent and nothing hardcodes gold.
- * Swapping to a real sites row means changing getMoveInContext, nothing else.
+ * The data layer decides mock vs Supabase; nothing here knows which.
  */
 export default async function PropertyLayout({
   children, params,
 }: { children: React.ReactNode; params: Promise<{ siteSlug: string }> }) {
   const { siteSlug } = await params
-  const ctx = getMoveInContext(siteSlug)
+  const ctx = await loadMoveInContext(siteSlug)
   if (!ctx) notFound()
 
   return (

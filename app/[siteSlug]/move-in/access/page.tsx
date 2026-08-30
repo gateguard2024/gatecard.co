@@ -1,7 +1,5 @@
 'use client'
 
-import { useParams } from 'next/navigation'
-import { getMoveInContext } from '@/lib/mock/east-ponds'
 import { StepRail, StepFooter, Check, money } from '@/components/chrome'
 import { useMoveIn } from '../state'
 import type { CredentialKind } from '@/lib/types'
@@ -15,9 +13,8 @@ import type { CredentialKind } from '@/lib/types'
  * costs the resident nothing but a spare.
  */
 export default function Access() {
-  const { siteSlug } = useParams<{ siteSlug: string }>()
-  const ctx = getMoveInContext(siteSlug)!
-  const { s, set } = useMoveIn()
+  const { ctx, s, set } = useMoveIn()
+  const siteSlug = ctx.property.slug
 
   const primary = ctx.credentials.find(c => c.isDefault)!
   const extras = ctx.credentials.filter(c => !c.isDefault)

@@ -1,7 +1,5 @@
 'use client'
 
-import { useParams } from 'next/navigation'
-import { getMoveInContext } from '@/lib/mock/east-ponds'
 import { StepRail, StepFooter, Check, money } from '@/components/chrome'
 import { useMoveIn } from '../state'
 
@@ -17,9 +15,8 @@ import { useMoveIn } from '../state'
  * waitlist — hiding it makes the resident ask the leasing office instead.
  */
 export default function Parking() {
-  const { siteSlug } = useParams<{ siteSlug: string }>()
-  const ctx = getMoveInContext(siteSlug)!
-  const { s, set } = useMoveIn()
+  const { ctx, s, set } = useMoveIn()
+  const siteSlug = ctx.property.slug
 
   const chosen = s.parkingTierId || ctx.parkingTiers.find(t => t.included)?.id || ''
   const tier = ctx.parkingTiers.find(t => t.id === chosen)
@@ -37,7 +34,7 @@ export default function Parking() {
 
         <div className="mi-free">
           <span aria-hidden>✓</span>
-          No card needed. Upgrades are added to your lease.
+          No card needed here. Upgrades are part of your lease.
         </div>
 
         {ctx.parkingTiers.map(t => {
@@ -69,8 +66,8 @@ export default function Parking() {
 
         {tier && !tier.included && (
           <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.875rem 0 0' }}>
-            {money(tier.monthlyCents)} a month is added to your lease, not charged to a
-            card today.
+            {money(tier.monthlyCents)} a month, as part of your lease. Nothing is charged
+            to a card here.
           </p>
         )}
 

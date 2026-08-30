@@ -237,6 +237,31 @@ per screen, manual-add rate (sync quality), leasing tickets per move-in (renewal
 
 ---
 
+## WHERE THINGS LIVE
+
+| Path | What it is |
+|------|-----------|
+| `supabase/migrations/200_move_in_portal.sql` | Schema for the PORTAL project (jtvxfmhlmokyuzdxxqpp). Additive only. Not yet run. |
+| `supabase/seeds/east_ponds.sql` | One property's catalogs. Every number is a placeholder. |
+| `lib/env.ts` | Which integrations are configured. Nothing assumes a service exists. |
+| `lib/data/` | The only place that decides mock vs Supabase. Screens can't tell. |
+| `lib/data/rows.ts` | Hand-written row types. Replace with `supabase gen types` once the migration has run. |
+| `lib/commission.ts` | Six-tier split. Pure — no Stripe, no Supabase, no clock. Test this one. |
+| `lib/stripe.ts` | Card rail only. Separate charges and transfers, not application fees. |
+| `lib/brivo.ts` | Roster in, credentials out. `auditContactCoverage()` answers assumption #1. |
+| `lib/provisioning.ts` | The queue. Idempotency keys derive from the work, never the run. |
+| `lib/inngest/functions.ts` | Activation, fulfilment, commission release. |
+| `app/api/move-in/activate` | Screens 01-03 complete. Takes no payment, cannot fail on one. |
+| `app/api/checkout` | Card rail. Prices re-read server-side, never trusted from the client. |
+| `app/api/webhooks/stripe` | Replay-safe. No path from a declined card to a credential. |
+| `app/api/health` | Which integrations are actually wired. |
+
+**Current state: no env is set, so the portal runs on mock data.** `/api/health`
+reports what is live. Endpoints that need a service return 503 with the reason
+rather than half-working.
+
+---
+
 ## TECH NOTES
 
 - Next.js 16 App Router, TypeScript, React 19
