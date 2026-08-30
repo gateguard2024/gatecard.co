@@ -33,6 +33,11 @@ const eastPonds: MoveInContext = {
     leasingPhone: '+14045550142',
     leasingHours: 'Mon–Fri 9–6 · Sat 10–4',
     supportEmail: 'leasing@eastponds.example',
+    parkingFee: {
+      label: 'Parking & amenity fee',
+      monthlyCents: 2500,
+      covers: 'Gate access, the resident lot and community amenities',
+    },
     directory: {
       mode: 'optional',
       defaultListed: true,
@@ -57,14 +62,9 @@ const eastPonds: MoveInContext = {
       blurb: 'Same thing, smaller — rides on your keyring.',
       deliveryNote: 'Ships in 3–5 days. Tap it at the gate once and it activates itself.' },
   ],
-  parkingTiers: [
-    { id: 'surface', label: 'Surface lot', monthlyCents: 0, included: true, spacesAvailable: 40,
-      blurb: 'Open parking anywhere in the resident lot.' },
-    { id: 'covered', label: 'Covered space', monthlyCents: 2500, included: false, spacesAvailable: 6,
-      blurb: 'Assigned space under the north canopy.' },
-    { id: 'garage', label: 'Garage space', monthlyCents: 6000, included: false, spacesAvailable: 0,
-      blurb: 'Assigned space in the gated garage, level 1.' },
-  ],
+  // No tier rows: this property doesn't sell space types, so the screen is
+  // pure vehicle registration and the picker disappears on its own.
+  parkingTiers: [],
   services: [
     { id: 'internet', name: 'Internet', provider: 'Included with your lease', category: 'internet',
       blurb: 'East Ponds has building-wide internet. Nothing to buy — you just need to switch it on.',
@@ -110,6 +110,11 @@ const campCreek: MoveInContext = {
     leasingPhone: '+14045550188',
     leasingHours: 'Mon–Fri 9–6',
     supportEmail: 'leasing@rhythmcampcreek.example',
+    parkingFee: {
+      label: 'Parking & amenity fee',
+      monthlyCents: 2000,
+      covers: 'Gate access, the resident lot and community amenities',
+    },
     // This property mandates listing — the gate is unstaffed and deliveries
     // fail outright when a resident can't be found.
     directory: {
@@ -133,12 +138,7 @@ const campCreek: MoveInContext = {
       blurb: 'A physical fob for the gate reader.',
       deliveryNote: 'Ships in 3–5 days. Activates on its first tap at the gate.' },
   ],
-  parkingTiers: [
-    { id: 'surface', label: 'Resident lot', monthlyCents: 0, included: true, spacesAvailable: 88,
-      blurb: 'Open parking in the main resident lot.' },
-    { id: 'reserved', label: 'Reserved space', monthlyCents: 3500, included: false, spacesAvailable: 12,
-      blurb: 'A numbered space near your building entrance.' },
-  ],
+  parkingTiers: [],
   services: [
     { id: 'internet', name: 'Internet', provider: 'Gate Guard Fiber', category: 'internet',
       blurb: '500 Mbps symmetric, installed before you move in. No contract.',
@@ -174,6 +174,11 @@ const lyvBuckhead: MoveInContext = {
     leasingPhone: '+14045550170',
     leasingHours: 'Mon–Sat 9–7 · Sun 12–5',
     supportEmail: 'concierge@lyvbuckhead.example',
+    parkingFee: {
+      label: 'Parking & amenity fee',
+      monthlyCents: 7500,
+      covers: 'Garage access, the lobby and building amenities',
+    },
     // A staffed lobby means nobody depends on the directory to reach a
     // resident, so opting out costs nothing here — and the default reflects it.
     directory: {
@@ -203,15 +208,7 @@ const lyvBuckhead: MoveInContext = {
       blurb: 'Smaller, rides on a keyring.',
       deliveryNote: 'Ships in 3–5 days. Activates on its first tap.' },
   ],
-  // Every tier costs money. Tower properties often have no free parking at all.
-  parkingTiers: [
-    { id: 'garage-standard', label: 'Garage, standard', monthlyCents: 7500, included: false,
-      spacesAvailable: 24, blurb: 'Levels 3–5, unassigned.' },
-    { id: 'garage-reserved', label: 'Garage, reserved', monthlyCents: 12500, included: false,
-      spacesAvailable: 4, blurb: 'A numbered space on level 2, near the elevator.' },
-    { id: 'ev', label: 'EV space', monthlyCents: 15000, included: false, spacesAvailable: 0,
-      blurb: 'Level 2, with a dedicated 48A charger.' },
-  ],
+  parkingTiers: [],
   services: [
     { id: 'internet', name: 'Internet', provider: 'Included with your lease', category: 'internet',
       blurb: 'Gigabit is part of your amenity fee. You just need to activate it.',
@@ -251,7 +248,7 @@ export const DEMO_NOTES: Record<string, { headline: string; points: string[] }> 
     points: [
       'Internet is included, so its card is an activation helper with no price',
       'DirecTV is unavailable here and never renders at all',
-      'The garage tier is at zero — shown, disabled, with a waitlist',
+      'No parking tiers sold here, so screen 3 is just the parking pass',
       'Insurance is flagged as required by the lease',
       'A second person on the lease gets their own link, not a shared session',
     ],
@@ -263,13 +260,13 @@ export const DEMO_NOTES: Record<string, { headline: string; points: string[] }> 
       'Insurance is optional here — same product, no lease badge',
       'The store carries credentials only, no merch programme',
       'One credential option instead of three',
+      'Directory listing is mandatory — the gate is unstaffed',
     ],
   },
   'lyv-buckhead': {
     headline: 'Nothing included — every parking tier is paid',
     points: [
-      'No free tier, so the resident has to actively choose one',
-      'An EV tier at zero availability',
+      'The highest parking & amenity fee of the three',
       'Two household members, one already invited',
       'A different accent colour, applied from the property record alone',
     ],

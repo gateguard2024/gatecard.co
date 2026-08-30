@@ -45,8 +45,15 @@ export default function Confirmation() {
       state: 'working_now',
       rail: 'included',
     },
-    ...(tier ? [{
+    ...(ctx.parkingTiers.length === 0 && s.vehicle.plate ? [{
       id: 'parking',
+      label: 'Parking pass',
+      detail: `${s.vehicle.plate} · ${s.vehicle.state}`,
+      state: 'working_now' as ItemState,
+      rail: 'included' as const,
+    }] : []),
+    ...(tier ? [{
+      id: 'parking-tier',
       label: tier.label,
       detail: s.vehicle.plate
         ? `${s.vehicle.plate} · ${s.vehicle.state}`
@@ -170,9 +177,13 @@ export default function Confirmation() {
 
         <div className="mi-card mi-card-p">
           <div className="mi-fact" style={{ paddingTop: 0 }}>
-            <span className="mi-fact-k">Part of your lease</span>
+            <span className="mi-fact-k">
+              {ctx.property.parkingFee?.label ?? 'Part of your lease'}
+            </span>
             <span className="mi-fact-v">
-              {tier && !tier.included ? `${money(tier.monthlyCents)}/mo` : 'Nothing extra'}
+              {ctx.property.parkingFee
+                ? `${money(ctx.property.parkingFee.monthlyCents)}/mo`
+                : tier && !tier.included ? `${money(tier.monthlyCents)}/mo` : 'Nothing extra'}
             </span>
           </div>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0 0 0.25rem' }}>

@@ -26,7 +26,8 @@ export async function fetchMoveInContext(
     .from('sites')
     .select('id, slug, name, address, city, state, accent_color, logo_url, ' +
             'leasing_phone, leasing_hours, support_email, move_in_enabled, ' +
-            'directory_mode, directory_default_listed, directory_formats, directory_note')
+            'directory_mode, directory_default_listed, directory_formats, directory_note, ' +
+            'parking_fee_label, parking_fee_cents, parking_fee_covers')
     .eq('slug', slug)
     .eq('move_in_enabled', true)
     .maybeSingle()
@@ -113,6 +114,13 @@ export async function fetchMoveInContext(
           : ['last_initial']) as DirectoryNameFormat[],
         note: site.directory_note ?? null,
       },
+      parkingFee: site.parking_fee_cents
+        ? {
+            label: site.parking_fee_label ?? 'Parking & amenity fee',
+            monthlyCents: site.parking_fee_cents,
+            covers: site.parking_fee_covers ?? '',
+          }
+        : null,
     },
 
     resident: {

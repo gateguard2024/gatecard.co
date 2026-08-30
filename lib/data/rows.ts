@@ -25,6 +25,9 @@ export interface SiteRow {
   directory_default_listed: boolean | null
   directory_formats: string[] | null
   directory_note: string | null
+  parking_fee_label: string | null
+  parking_fee_cents: number | null
+  parking_fee_covers: string | null
 }
 
 export interface ResidentRow {

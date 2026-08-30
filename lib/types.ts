@@ -45,6 +45,8 @@ export interface Property {
   /** Shown on 06. Where support goes — the property, never Gate Guard. */
   supportEmail: string
   directory: DirectoryPolicy
+  /** Null where the property charges nothing to park inside the gates. */
+  parkingFee: ParkingFee | null
 }
 
 /** Pre-filled from the Brivo roster. Resident edits at most the mobile number. */
@@ -77,6 +79,23 @@ export interface CredentialOption {
 }
 
 // ── Screen 03 — parking ──────────────────────────────────────────────────────
+
+/**
+ * The community parking and amenity fee.
+ *
+ * This is NOT a choice. It is the mandatory charge to park inside the gates,
+ * written into the lease (D2) — so the screen states it rather than offering
+ * it, and takes no card for it (D3, where the collection path is still open).
+ *
+ * Distinct from ParkingTier below, which is an optional space-type upgrade a
+ * property may or may not sell.
+ */
+export interface ParkingFee {
+  label: string
+  monthlyCents: number
+  /** What it covers, in the property's words. */
+  covers: string
+}
 
 export interface ParkingTier {
   id: string
