@@ -32,13 +32,10 @@
      panels. Matching that means the ground sits BELOW the cards, wells sit
      below the ground, and the header keeps the frosted tone above everything.
      Ground→card is now 1.24:1, card→well 1.45:1, well→header 2.10:1.  */
+  /* One flat shade. A repeating grid at this scale reads as banding, not
+     texture, and stacking a radial on top of it gave the page two gradients
+     fighting each other. The depth comes from the surface ramp instead. */
   --bg:                #2B3746;
-  --bg-grad:
-    radial-gradient(ellipse 130% 62% at 50% -14%, #38485D 0%, #253040 66%);
-  --bg-grid:
-    linear-gradient(rgba(226,238,250,0.022) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(226,238,250,0.022) 1px, transparent 1px);
-  --bg-grid-size:      52px 52px;
 
   --surface:           #35455A;   /* cards sit ABOVE the ground */
   --surface-2:         #3F5167;
@@ -79,9 +76,6 @@
     min-height: 100%;
     margin: 0;
     background-color: var(--bg);
-    background-image: var(--bg-grid), var(--bg-grad);
-    background-size: var(--bg-grid-size), auto;
-    background-attachment: fixed;
     color: var(--text);
     font-family: var(--font-sans);
     font-weight: 400;
