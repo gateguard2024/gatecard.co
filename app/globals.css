@@ -4,9 +4,12 @@
    GateCard — Resident Move-In Portal
    Mobile-first. The resident is standing in a parking lot holding keys.
 
-   The property owns the header. Gate Guard is subordinate throughout —
-   --accent is set per property on [data-property] and everything chromatic
-   reads from it. Nothing here should hardcode gold.
+   Blue steel, matched to the Nexus portal at portal.gateguard.co — deep navy
+   ground, cool slate panels, a steel-blue accent that runs light at the top of
+   its ramp. Palette sampled from the portal itself, not eyeballed.
+
+   The property still owns the header: --accent is a per-property token and
+   nothing below hardcodes a brand color. Steel blue is only the default.
 ───────────────────────────────────────────────────────────────────────────── */
 
 @theme {
@@ -14,60 +17,54 @@
 }
 
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
 
-  /* Accent — overridden per property by [data-property] inline style */
-  --accent:            #C8A45A;
-  --accent-ink:        #1A1206;
+  /* ── Accent — steel blue. Per-property override lands on [data-property]. ── */
+  --accent:            #6CABD4;
+  --accent-hi:         #A2D0E9;
+  --accent-ink:        #071119;
 
-  /* Light is the default. Move-in happens outdoors, in daylight, on a phone. */
-  --bg:                #F4F4F7;
-  --bg-grad:           radial-gradient(ellipse 90% 40% at 50% 0%, #ECECF3 0%, #F4F4F7 60%);
-  --surface:           #FFFFFF;
-  --surface-2:         #F7F7FA;
-  --surface-sunk:      #EFEFF4;
+  /* ── Ground ── */
+  --bg:                #0B111C;
+  --bg-grad:
+    radial-gradient(ellipse 120% 55% at 50% -10%, #16202F 0%, #0B111C 62%);
+  /* Faint blueprint grid, as on the portal. Sits under everything. */
+  --bg-grid:
+    linear-gradient(rgba(140,175,205,0.030) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(140,175,205,0.030) 1px, transparent 1px);
+  --bg-grid-size:      44px 44px;
 
-  --text:              #14141C;
-  --text-2:            #5A5A6E;
-  --text-3:            #8E8EA3;
+  --surface:           #141D2B;
+  --surface-2:         #1A2433;
+  --surface-sunk:      #101827;
 
-  --line:              rgba(0,0,0,0.09);
-  --line-2:            rgba(0,0,0,0.15);
+  --text:              #E4ECF4;
+  --text-2:            #96A6B9;
+  --text-3:            #63748A;
 
-  --ok:                #0F8A5F;
-  --warn:              #B4761A;
-  --stop:              #C2372F;
+  --line:              rgba(150,180,208,0.11);
+  --line-2:            rgba(150,180,208,0.22);
 
-  --shadow-card:       0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.05);
-  --shadow-lift:       0 2px 6px rgba(0,0,0,0.06), 0 12px 32px rgba(0,0,0,0.10);
+  --ok:                #3FB98A;
+  --warn:              #F2C24B;
+  --stop:              #E14F62;
+
+  --shadow-card:       0 1px 0 rgba(255,255,255,0.035) inset, 0 6px 22px rgba(0,0,0,0.42);
+  --shadow-lift:       0 1px 0 rgba(255,255,255,0.05) inset, 0 16px 40px rgba(0,0,0,0.55);
 
   --r-card:            1rem;
   --r-btn:             0.75rem;
   --shell:             440px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg:              #0A0A0F;
-    --bg-grad:         radial-gradient(ellipse 100% 45% at 50% 0%, #15151F 0%, #0A0A0F 62%);
-    --surface:         #121218;
-    --surface-2:       #17171F;
-    --surface-sunk:    #0E0E13;
+/*  Dark only, like the portal. A per-property --accent overrides the steel
+    blue, and --accent-hi is derived from it below so a custom accent gets the
+    same ramp on buttons and meters instead of a mismatched steel highlight.
 
-    --text:            #F3F3F6;
-    --text-2:          #9A9AAE;
-    --text-3:          #63637A;
-
-    --line:            rgba(255,255,255,0.08);
-    --line-2:          rgba(255,255,255,0.15);
-
-    --ok:              #34D399;
-    --warn:            #F0B44A;
-    --stop:            #F87171;
-
-    --shadow-card:     0 1px 0 rgba(255,255,255,0.03) inset, 0 6px 24px rgba(0,0,0,0.5);
-    --shadow-lift:     0 1px 0 rgba(255,255,255,0.04) inset, 0 16px 40px rgba(0,0,0,0.6);
-  }
+    Note for a real deployment: move-in happens outdoors in daylight. Check this
+    on a phone in direct sun before it ships — a dark UI can lose to glare.  */
+[data-property] {
+  --accent-hi: color-mix(in srgb, var(--accent) 74%, white);
 }
 
 @layer base {
@@ -77,7 +74,8 @@
     min-height: 100%;
     margin: 0;
     background-color: var(--bg);
-    background-image: var(--bg-grad);
+    background-image: var(--bg-grid), var(--bg-grad);
+    background-size: var(--bg-grid-size), auto;
     background-attachment: fixed;
     color: var(--text);
     font-family: var(--font-sans);
@@ -137,7 +135,7 @@
     height: 3px; flex: 1; border-radius: 2px;
     background: var(--line-2);
   }
-  .mi-rail-seg[data-on="true"]   { background: var(--accent); }
+  .mi-rail-seg[data-on="true"]   { background: linear-gradient(90deg, var(--accent), var(--accent-hi)); }
   .mi-rail-seg[data-now="true"]  { background: var(--accent); opacity: 0.55; }
   .mi-rail-label {
     padding: 0.5rem 1.125rem 0;
@@ -198,8 +196,8 @@
     display: grid; place-items: center;
     transition: border-color .14s, background .14s;
   }
-  .mi-opt[data-sel="true"] .mi-tick { border-color: var(--accent); background: var(--accent); }
-  .mi-tick svg { opacity: 0; width: 12px; height: 12px; color: var(--accent-ink); }
+  .mi-opt[data-sel="true"] .mi-tick { border-color: var(--accent-hi); background: var(--accent-hi); }
+  .mi-tick svg { opacity: 0; width: 12px; height: 12px; color: #071119; }
   .mi-opt[data-sel="true"] .mi-tick svg { opacity: 1; }
 
   .mi-opt-title { font-weight: 550; font-size: 0.9375rem; letter-spacing: -0.01em; }
@@ -247,7 +245,9 @@
     display: flex; align-items: center; justify-content: center; gap: 0.5rem;
     width: 100%; padding: 0.9375rem 1.25rem;
     border: none; border-radius: var(--r-btn);
-    background: var(--accent); color: var(--accent-ink);
+    background: linear-gradient(180deg, var(--accent-hi), var(--accent));
+    color: var(--accent-ink);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.22) inset, 0 2px 10px rgba(0,0,0,0.28);
     font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.01em;
     cursor: pointer; transition: filter .14s, transform .06s;
   }
@@ -256,8 +256,9 @@
   .mi-btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
 
   .mi-btn-2 {
-    background: transparent; color: var(--text-2);
+    background: var(--surface-2); color: var(--text);
     border: 1px solid var(--line-2);
+    box-shadow: none;
   }
   .mi-btn-2:hover { background: var(--surface-2); filter: none; }
 

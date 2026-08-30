@@ -11,7 +11,7 @@ const montserrat = Montserrat({
 
 export const metadata: Metadata = {
   title: 'GateCard',
-  description: 'Your whole community. One experience.',
+  description: 'Move-in, access and services for your community.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -25,7 +25,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#080E1A',
+  themeColor: '#0B111C',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

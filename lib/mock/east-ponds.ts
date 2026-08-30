@@ -16,7 +16,7 @@ export const eastPonds: MoveInContext = {
     name: 'East Ponds',
     addressLine: '1400 Ponds Crossing',
     cityState: 'Atlanta, GA',
-    accent: '#C8A45A',
+    accent: '#6CABD4',
     logoUrl: null,
     leasingPhone: '+14045550142',
     leasingHours: 'Mon–Fri 9–6 · Sat 10–4',
