@@ -194,6 +194,8 @@ export async function fetchMoveInContext(
       }
     }),
 
+    // Credential items are ours: a fob is a Brivo enrollment, not a dropship
+    // SKU. Merch is merged in from Shopify by the caller when it's configured.
     store: (store.data ?? []).map((p): StoreProduct => ({
       id: p.id,
       name: p.name,

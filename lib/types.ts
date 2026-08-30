@@ -194,6 +194,8 @@ export interface StoreProduct {
   blurb: string
   priceCents: number
   imageEmoji: string
+  /** Set when the product comes from Shopify; the emoji is the fallback. */
+  imageUrl?: string | null
   /** 'merch' routes to the dropship supplier; 'credential' routes to Brivo enrollment. */
   fulfilment: 'merch' | 'credential'
   inStock: boolean

@@ -46,9 +46,17 @@ export default function Store() {
               <div key={p.id} className="mi-card"
                    style={{ padding: '0.875rem', display: 'flex', flexDirection: 'column',
                             opacity: p.inStock ? 1 : 0.5 }}>
-                <div style={{ fontSize: '1.75rem', lineHeight: 1, marginBottom: '0.5rem' }} aria-hidden>
-                  {p.imageEmoji}
-                </div>
+                {p.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.imageUrl} alt=""
+                       style={{ width: '100%', aspectRatio: '1', objectFit: 'cover',
+                                borderRadius: '8px', marginBottom: '0.5rem',
+                                background: 'var(--surface-sunk)' }} />
+                ) : (
+                  <div style={{ fontSize: '1.75rem', lineHeight: 1, marginBottom: '0.5rem' }} aria-hidden>
+                    {p.imageEmoji}
+                  </div>
+                )}
                 <div className="mi-opt-title" style={{ fontSize: '0.875rem' }}>{p.name}</div>
                 <div className="mi-opt-blurb" style={{ fontSize: '0.75rem', flex: 1 }}>{p.blurb}</div>
 
