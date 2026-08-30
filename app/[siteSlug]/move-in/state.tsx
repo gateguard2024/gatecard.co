@@ -1,7 +1,9 @@
 'use client'
 
 import { createContext, useContext, useState, type ReactNode } from 'react'
-import type { CredentialKind, VehicleDraft, MoveInContext } from '@/lib/types'
+import type {
+  CredentialKind, VehicleDraft, MoveInContext, DirectoryNameFormat,
+} from '@/lib/types'
 
 /**
  * Move-in selections, held in the layout so they survive navigation between
@@ -17,6 +19,9 @@ export interface MoveInState {
   vehicle: VehicleDraft
   services: string[]
   cart: Record<string, number>
+  /** Listed in the callbox directory. Never affects access, either way. */
+  directoryListed: boolean
+  directoryFormat: DirectoryNameFormat
 }
 
 const EMPTY: MoveInState = {
@@ -27,6 +32,8 @@ const EMPTY: MoveInState = {
   vehicle: { plate: '', state: '', make: '', model: '', color: '' },
   services: [],
   cart: {},
+  directoryListed: true,
+  directoryFormat: 'last_initial',
 }
 
 const Ctx = createContext<{
@@ -44,6 +51,12 @@ export function MoveInProvider(
     // Default to whatever the property marks as included.
     parkingTierId: ctx.parkingTiers.find(t => t.included)?.id ?? '',
     credential: ctx.credentials.find(c => c.isDefault)?.kind ?? 'phone',
+    // A property that mandates listing overrides the default; otherwise the
+    // property's own default decides where the toggle starts.
+    directoryListed: ctx.property.directory.mode === 'required'
+      ? true
+      : ctx.property.directory.defaultListed,
+    directoryFormat: ctx.property.directory.formats[0] ?? 'last_initial',
   }))
   const set = <K extends keyof MoveInState>(k: K, v: MoveInState[K]) =>
     setS(prev => ({ ...prev, [k]: v }))

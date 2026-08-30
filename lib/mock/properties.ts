@@ -33,6 +33,12 @@ const eastPonds: MoveInContext = {
     leasingPhone: '+14045550142',
     leasingHours: 'Mon–Fri 9–6 · Sat 10–4',
     supportEmail: 'leasing@eastponds.example',
+    directory: {
+      mode: 'optional',
+      defaultListed: true,
+      formats: ['last_initial', 'full', 'unit_only'],
+      note: 'Couriers use the callbox to reach you about packages.',
+    },
   },
   resident: {
     firstName: 'Maya', lastName: 'Ellison', unitNumber: '214',
@@ -104,6 +110,14 @@ const campCreek: MoveInContext = {
     leasingPhone: '+14045550188',
     leasingHours: 'Mon–Fri 9–6',
     supportEmail: 'leasing@rhythmcampcreek.example',
+    // This property mandates listing — the gate is unstaffed and deliveries
+    // fail outright when a resident can't be found.
+    directory: {
+      mode: 'required',
+      defaultListed: true,
+      formats: ['last_initial'],
+      note: 'The gate is unstaffed, so couriers and guests rely on the directory.',
+    },
   },
   resident: {
     firstName: 'Devin', lastName: 'Okafor', unitNumber: '1108',
@@ -160,6 +174,14 @@ const lyvBuckhead: MoveInContext = {
     leasingPhone: '+14045550170',
     leasingHours: 'Mon–Sat 9–7 · Sun 12–5',
     supportEmail: 'concierge@lyvbuckhead.example',
+    // A staffed lobby means nobody depends on the directory to reach a
+    // resident, so opting out costs nothing here — and the default reflects it.
+    directory: {
+      mode: 'optional',
+      defaultListed: false,
+      formats: ['unit_only', 'last_initial', 'full'],
+      note: 'The concierge announces guests, so the directory is optional here.',
+    },
   },
   resident: {
     firstName: 'Priya', lastName: 'Raman', unitNumber: '2207',

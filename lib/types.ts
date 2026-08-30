@@ -5,6 +5,31 @@
 // lib/mock/ today; wiring is a swap of the data source, not a rewrite.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * How a resident appears in the digital callbox directory.
+ *
+ * This is a privacy control, so the default is a property decision rather than
+ * ours. Some properties mandate listing because deliveries fail without it;
+ * others let residents choose. A resident who is unlisted must still be
+ * reachable some other way, or the setting quietly breaks their deliveries.
+ */
+export type DirectoryNameFormat = 'full' | 'last_initial' | 'unit_only'
+
+export type DirectoryMode =
+  | 'required'   // the property mandates listing; shown, explained, not editable
+  | 'optional'   // the resident chooses
+  | 'hidden'     // no directory at this property; the section never renders
+
+export interface DirectoryPolicy {
+  mode: DirectoryMode
+  /** Which way the toggle starts when mode is 'optional'. */
+  defaultListed: boolean
+  /** Formats this property allows. Order is the order shown. */
+  formats: DirectoryNameFormat[]
+  /** Why it matters here — packages, gate staff, a guest at 11pm. */
+  note: string | null
+}
+
 /** A property. The resident's relationship is with this, not with Gate Guard. */
 export interface Property {
   slug: string
@@ -19,6 +44,7 @@ export interface Property {
   leasingHours: string
   /** Shown on 06. Where support goes — the property, never Gate Guard. */
   supportEmail: string
+  directory: DirectoryPolicy
 }
 
 /** Pre-filled from the Brivo roster. Resident edits at most the mobile number. */

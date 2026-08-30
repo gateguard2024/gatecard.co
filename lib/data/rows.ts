@@ -21,6 +21,10 @@ export interface SiteRow {
   leasing_hours: string | null
   support_email: string | null
   move_in_enabled: boolean
+  directory_mode: string | null
+  directory_default_listed: boolean | null
+  directory_formats: string[] | null
+  directory_note: string | null
 }
 
 export interface ResidentRow {

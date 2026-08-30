@@ -2,7 +2,7 @@ import 'server-only'
 import { supabaseAdmin } from '@/lib/supabase'
 import type {
   MoveInContext, CredentialOption, ParkingTier, ServiceOffer,
-  StoreProduct, OfferMode, CredentialKind,
+  StoreProduct, OfferMode, CredentialKind, DirectoryMode, DirectoryNameFormat,
 } from '@/lib/types'
 import type {
   SiteRow, ResidentRow, HouseholdRow, CredentialOptionRow, ParkingTierRow,
@@ -25,7 +25,8 @@ export async function fetchMoveInContext(
   const { data: site, error: siteErr } = await db
     .from('sites')
     .select('id, slug, name, address, city, state, accent_color, logo_url, ' +
-            'leasing_phone, leasing_hours, support_email, move_in_enabled')
+            'leasing_phone, leasing_hours, support_email, move_in_enabled, ' +
+            'directory_mode, directory_default_listed, directory_formats, directory_note')
     .eq('slug', slug)
     .eq('move_in_enabled', true)
     .maybeSingle()
@@ -104,6 +105,14 @@ export async function fetchMoveInContext(
       leasingPhone: site.leasing_phone ?? '',
       leasingHours: site.leasing_hours ?? '',
       supportEmail: site.support_email ?? '',
+      directory: {
+        mode: (site.directory_mode ?? 'optional') as DirectoryMode,
+        defaultListed: site.directory_default_listed ?? true,
+        formats: (site.directory_formats?.length
+          ? site.directory_formats
+          : ['last_initial']) as DirectoryNameFormat[],
+        note: site.directory_note ?? null,
+      },
     },
 
     resident: {

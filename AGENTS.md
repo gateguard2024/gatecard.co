@@ -314,6 +314,33 @@ you try a regex without saving it.
 
 ---
 
+## CALLBOX DIRECTORY — A PRIVACY CONTROL
+
+The digital callbox directory is what a guest or courier searches to call a
+resident. Whether a resident appears in it is their choice where the property
+allows it (`sites.directory_mode`: required / optional / hidden), and they pick
+how their name shows — full, first name + last initial, or just the unit.
+
+**Two rules, both load-bearing:**
+
+1. **Listing never affects access.** There is no code path from
+   `directory_listed` to a credential. An unlisted resident opens the gate
+   exactly like a listed one.
+2. **Unlisted must not silently break deliveries.** The screen says plainly what
+   stops working, because a resident who finds out via a missed package blames
+   the building, not the setting.
+
+**Downstream, and easy to miss:** the Pi agent writes residents into the UniFi
+Access intercom directory. It must read the `callbox_directory` view, not the
+`residents` table — otherwise an opt-out is cosmetic and the resident's name is
+still on the screen at the gate. The view also excludes residents with no phone,
+since an entry nobody can ring is furniture.
+
+Defaults are a property decision, not ours: an unstaffed gate reasonably
+mandates listing, a staffed lobby can default to unlisted.
+
+---
+
 ## WHERE THINGS LIVE
 
 | Path | What it is |

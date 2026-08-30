@@ -2,7 +2,7 @@
 
 import { StepRail, StepFooter, Check, money } from '@/components/chrome'
 import { useMoveIn } from '../state'
-import type { CredentialKind } from '@/lib/types'
+import type { CredentialKind, DirectoryNameFormat } from '@/lib/types'
 
 /**
  * 02 · Access
@@ -91,12 +91,138 @@ export default function Access() {
           </div>
         )}
 
+        <DirectorySection />
+
         <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginTop: '1.25rem' }}>
           Your GateCard photo can wait — add it any time from the app.
         </p>
       </div>
 
       <StepFooter href={`/${siteSlug}/move-in/parking`} label="Continue" />
+    </>
+  )
+}
+
+
+/**
+ * How visitors reach you at the callbox.
+ *
+ * A privacy control, and the reason it sits on this screen rather than a new
+ * one: the three-step activation promise is worth more than tidy grouping, and
+ * this belongs with "how you get in" because it is the same door.
+ *
+ * Two things it must never do. It must not affect access — an unlisted
+ * resident opens the gate exactly like a listed one. And it must not silently
+ * strand deliveries: opting out says plainly what stops working, because a
+ * resident who discovers it via a missed package blames the building.
+ */
+function DirectorySection() {
+  const { ctx, s, set } = useMoveIn()
+  const policy = ctx.property.directory
+
+  // Some properties run no directory at all.
+  if (policy.mode === 'hidden') return null
+
+  const { firstName, lastName, unitNumber } = ctx.resident
+  const preview = (f: DirectoryNameFormat) =>
+    f === 'full' ? `${firstName} ${lastName}`
+    : f === 'last_initial' ? `${firstName} ${lastName.charAt(0).toUpperCase()}.`
+    : `Unit ${unitNumber}`
+
+  const LABEL: Record<DirectoryNameFormat, string> = {
+    full: 'My full name',
+    last_initial: 'First name and last initial',
+    unit_only: 'Just my unit number',
+  }
+
+  const required = policy.mode === 'required'
+  const listed = required || s.directoryListed
+
+  return (
+    <>
+      <div className="mi-label" style={{ margin: '1.75rem 0 0.625rem' }}>
+        How visitors reach you
+      </div>
+      <p style={{ fontSize: '0.8125rem', color: 'var(--text-2)', margin: '0 0 0.875rem' }}>
+        The callbox at the gate has a directory guests search to call you.
+        {policy.note ? ` ${policy.note}` : ''}
+      </p>
+
+      {required ? (
+        <div className="mi-card mi-card-p">
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <span className="mi-opt-title" style={{ flex: 1 }}>Listed in the directory</span>
+            <span className="mi-badge" data-tone="req">Required here</span>
+          </div>
+          <div className="mi-opt-blurb">
+            {ctx.property.name} lists every resident. You can still choose how your
+            name appears.
+          </div>
+        </div>
+      ) : (
+        <>
+          <label className="mi-opt" data-sel={listed ? 'true' : 'false'}>
+            <input type="radio" name="dir" checked={listed}
+                   onChange={() => set('directoryListed', true)}
+                   style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} />
+            <span className="mi-tick"><Check /></span>
+            <div style={{ flex: 1 }}>
+              <div className="mi-opt-title">List me</div>
+              <div className="mi-opt-blurb">
+                Guests and couriers can find you at the callbox and ring your phone.
+              </div>
+            </div>
+          </label>
+
+          <label className="mi-opt" data-sel={!listed ? 'true' : 'false'}>
+            <input type="radio" name="dir" checked={!listed}
+                   onChange={() => set('directoryListed', false)}
+                   style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} />
+            <span className="mi-tick"><Check /></span>
+            <div style={{ flex: 1 }}>
+              <div className="mi-opt-title">Keep me off the directory</div>
+              <div className="mi-opt-blurb">
+                Nobody can look you up at the gate.
+              </div>
+              {!listed && (
+                <div className="mi-opt-note" style={{ color: 'var(--warn)' }}>
+                  Couriers and guests won&apos;t be able to reach you from the callbox —
+                  you&apos;ll need to let them in from your phone, or give them your
+                  unit number in advance. Your own access is unaffected.
+                </div>
+              )}
+            </div>
+          </label>
+        </>
+      )}
+
+      {listed && policy.formats.length > 1 && (
+        <>
+          <div className="mi-label" style={{ margin: '1.25rem 0 0.5rem' }}>
+            How your name appears
+          </div>
+          {policy.formats.map(f => (
+            <label key={f} className="mi-opt"
+                   data-sel={s.directoryFormat === f ? 'true' : 'false'}>
+              <input type="radio" name="dirfmt" checked={s.directoryFormat === f}
+                     onChange={() => set('directoryFormat', f)}
+                     style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} />
+              <span className="mi-tick"><Check /></span>
+              <div style={{ flex: 1 }}>
+                <div className="mi-opt-title">{LABEL[f]}</div>
+                {/* What a visitor actually sees, rather than a description of it. */}
+                <div className="mi-opt-note" style={{ fontFamily: 'ui-monospace, monospace' }}>
+                  Shows as “{preview(f)}”
+                </div>
+              </div>
+            </label>
+          ))}
+        </>
+      )}
+
+      <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginTop: '0.875rem' }}>
+        You can change this any time, and it never affects whether your key works.
+      </p>
     </>
   )
 }
