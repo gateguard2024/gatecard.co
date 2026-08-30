@@ -9,7 +9,8 @@ export const maxDuration = 300
 const SITE_FIELDS =
   'id, slug, name, accent_color, leasing_phone, pm_email, primary_contact_email, ops_email, ' +
   'brivo_sync_mode, auto_invite_residents, move_out_confirm_runs, move_out_grace_hours, ' +
-  'roster_shrink_guard_pct, brivo_unit_field, brivo_auth_basic, brivo_api_key, ' +
+  'roster_shrink_guard_pct, brivo_unit_field, brivo_unit_source, brivo_unit_pattern, ' +
+  'brivo_unit_exclude, brivo_topology_ttl_minutes, brivo_auth_basic, brivo_api_key, ' +
   'brivo_username, brivo_password'
 
 /**

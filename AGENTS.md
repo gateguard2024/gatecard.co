@@ -277,10 +277,40 @@ and outstanding invite links are revoked. Credentials are NOT revoked from here
 Staff get one digest per run; residents get individual invites. Auto-mailing
 real people off a roster nobody has watched yet is a one-time mistake.
 
-**Known gap: Brivo carries no unit number natively.** The previous sync never
-populated one — every row it wrote had a null unit, which a unit-scoped portal
-cannot use. `sites.brivo_unit_field` names the custom field per property. A
-resident with no unit is flagged to staff, never silently onboarded.
+### Units are Brivo SITES — and that name collides with ours
+
+⚠️ **`sites` in our schema is a PROPERTY (East Ponds). A Brivo "site" is a UNIT
+(214).** Anything referring to Brivo's concept is named `unitSite` /
+`brivo_unit_site`. Confusing the two silently maps a whole roster to the wrong
+property.
+
+Brivo exposes no user→site edge. Access runs:
+
+    user ──< membership >── group ──< permission >── site (the unit)
+
+So the unit map is built **group-first**: list groups, resolve each group's
+unit, list that group's members. That is ~300 requests for an 832-resident
+property instead of 832, and it's the direction the API supports.
+
+**The hard part is telling a unit from an amenity.** Residents also have access
+to the vehicle gate, the clubhouse, the pool and the package room — all Brivo
+sites. With no rule, every resident "lives in" the Main Gate.
+`sites.brivo_unit_pattern` (regex) plus `brivo_unit_exclude` decide it; the
+default heuristic is digits with an optional letter. A resident matching **more
+than one** unit-like name gets no unit and is flagged — usually a stale
+permission from a previous unit, or a pattern that is too loose.
+
+The map is cached (`brivo_unit_map_cache`, 6h default). A new resident is always
+absent from it, so an unmapped id forces a rebuild rather than waiting out the
+TTL. A failed rebuild serves the stale map instead of discarding it — a slightly
+old unit beats none. Units are only ever filled IN, never blanked, so a lookup
+failure can't read as a building-wide unit change.
+
+**Run `/api/brivo/probe?siteSlug=x` before enabling sync at a property.** It is
+read-only and answers the three questions that decide whether this works: which
+names look like units vs amenities, whether residents map to exactly one unit,
+and whether the roster carries email and phone (assumption #1). `?pattern=` lets
+you try a regex without saving it.
 
 ---
 

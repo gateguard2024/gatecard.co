@@ -7,6 +7,7 @@ import {
   type KnownResident, type RosterEntry, type Policy, type Reconciliation,
 } from './reconcile'
 import { sendEmail, staffDigestHtml, residentInviteHtml, type MoveInRow } from './notify'
+import { getUnitMap, type UnitSource } from './brivo-topology'
 
 /**
  * One site's roster sync, end to end: fetch → reconcile → apply → notify.
@@ -33,6 +34,10 @@ export interface SiteSyncConfig {
   move_out_grace_hours: number
   roster_shrink_guard_pct: number
   brivo_unit_field: string | null
+  brivo_unit_source: UnitSource
+  brivo_unit_pattern: string | null
+  brivo_unit_exclude: string[] | null
+  brivo_topology_ttl_minutes: number
   brivo_auth_basic: string | null
   brivo_api_key: string | null
   brivo_username: string | null
@@ -45,6 +50,10 @@ export interface SiteSyncConfig {
  * `complete` is the single most important value this returns. The previous
  * implementation had no equivalent: it treated a half-fetched roster exactly
  * like a full one and deactivated the difference.
+ *
+ * Units are NOT resolved here. At these properties a unit is a Brivo site, and
+ * that relationship runs through groups rather than sitting on the user — see
+ * lib/brivo-topology.ts. Only the custom-field case can be read inline.
  */
 export async function fetchRoster(
   creds: BrivoCredentials,
@@ -148,6 +157,55 @@ export async function syncSite(site: SiteSyncConfig): Promise<{
     site.brivo_unit_field ?? 'Unit',
   )
 
+  // ── Units ──────────────────────────────────────────────────────────────────
+  // A unit is a Brivo site here, reachable only via group membership, so it is
+  // resolved from the cached topology rather than read off the user.
+  const unitAttention: string[] = []
+
+  if (site.brivo_unit_source !== 'custom_field' && fetched.roster.length) {
+    const unit = await getUnitMap({
+      propertySiteId: site.id,
+      creds: {
+        authBasic: site.brivo_auth_basic,
+        apiKey: site.brivo_api_key,
+        username: site.brivo_username,
+        password: site.brivo_password,
+      },
+      cfg: {
+        source: site.brivo_unit_source,
+        pattern: site.brivo_unit_pattern,
+        exclude: site.brivo_unit_exclude ?? [],
+      },
+      ttlMinutes: site.brivo_topology_ttl_minutes ?? 360,
+      expectUserIds: fetched.roster.map(r => r.brivoUserId),
+    })
+
+    for (const entry of fetched.roster) {
+      const resolved = unit.map[entry.brivoUserId]
+      // Only ever fill a unit in. Never blank one that is already known because
+      // this run couldn't resolve it — that would read as a unit change.
+      if (resolved) entry.unitNumber = resolved
+    }
+
+    const ambiguous = Object.keys(unit.ambiguous).length
+    if (ambiguous) {
+      unitAttention.push(
+        `${ambiguous} resident${ambiguous === 1 ? '' : 's'} match more than one unit in Brivo ` +
+        `and were left without one. Usually a stale permission from a previous unit, ` +
+        `or a unit pattern that is too loose.`)
+    }
+    if (!unit.complete) {
+      unitAttention.push(
+        `Unit lookup did not complete${unit.error ? ` (${unit.error})` : ''}. ` +
+        `Existing units were kept; new residents may arrive without one.`)
+    }
+    if (unit.complete && unit.unitNames.length === 0) {
+      unitAttention.push(
+        `No Brivo site looked like a unit. Check sites.brivo_unit_pattern against ` +
+        `the real names — run /api/brivo/probe?siteSlug=${site.slug ?? ''} to see them.`)
+    }
+  }
+
   const { data: knownRows, error: knownErr } = await db
     .from('residents')
     .select('id, brivo_user_id, unit_number, lifecycle_status, missing_since, missing_streak')
@@ -224,7 +282,7 @@ export async function syncSite(site: SiteSyncConfig): Promise<{
 
   // ── Move-ins ───────────────────────────────────────────────────────────────
   const movedInRows: MoveInRow[] = []
-  const attention: string[] = []
+  const attention: string[] = [...unitAttention]
 
   for (const entry of r.movedIn) {
     const { data: resident, error } = await db.from('residents').insert({
