@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { loadMoveInContext } from '@/lib/data'
+import { loadMoveInContext, dataSource } from '@/lib/data'
 import { PropertyHeader, GateGuardMark } from '@/components/chrome'
 
 /**
@@ -20,6 +20,11 @@ export default async function PropertyLayout({
       data-property={ctx.property.slug}
       style={{ ['--accent' as string]: ctx.property.accent }}
     >
+      {dataSource() === 'mock' && (
+        <div className="mi-demo">
+          Demo · invented residents, no payments taken
+        </div>
+      )}
       <PropertyHeader property={ctx.property} />
       {children}
       <GateGuardMark />

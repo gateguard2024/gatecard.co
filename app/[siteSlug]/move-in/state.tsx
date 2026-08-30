@@ -17,7 +17,14 @@ export interface MoveInState {
   extraCredentials: CredentialKind[]
   parkingTierId: string
   vehicle: VehicleDraft
+  /** Sellable offers the resident ticked. */
   services: string[]
+  /**
+   * Offers driven by a button rather than a tick — an included service being
+   * switched on, or a quote being asked for. Neither is a purchase, so they
+   * are kept apart from `services` and never reach a total.
+   */
+  requested: string[]
   cart: Record<string, number>
   /** Listed in the callbox directory. Never affects access, either way. */
   directoryListed: boolean
@@ -31,6 +38,7 @@ const EMPTY: MoveInState = {
   parkingTierId: '',
   vehicle: { plate: '', state: '', make: '', model: '', color: '' },
   services: [],
+  requested: [],
   cart: {},
   directoryListed: true,
   directoryFormat: 'last_initial',

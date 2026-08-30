@@ -25,6 +25,11 @@ export default function Services() {
 
   const offers = ctx.services.filter(o => o.mode !== 'unavailable')
 
+  const request = (id: string) =>
+    set('requested', s.requested.includes(id)
+      ? s.requested.filter(x => x !== id)
+      : [...s.requested, id])
+
   const toggle = (id: string) =>
     set('services', s.services.includes(id)
       ? s.services.filter(x => x !== id)
@@ -45,7 +50,11 @@ export default function Services() {
         </p>
 
         {offers.map(o => {
-          const on = s.services.includes(o.id)
+          // Sellable offers are ticked; included and quote offers are requested
+          // by button. One flag either way, so the card reads the same.
+          const on = o.mode === 'sellable'
+            ? s.services.includes(o.id)
+            : s.requested.includes(o.id)
 
           // Already covered by the lease — an activation helper, not a purchase.
           if (o.mode === 'included') {
@@ -58,14 +67,18 @@ export default function Services() {
                   </div>
                   <span className="mi-badge" data-tone="ok">Included</span>
                 </div>
-                <button className="mi-btn mi-btn-2" style={{ marginTop: '0.875rem' }}>
-                  {o.ctaLabel}
+                <button
+                  className={on ? 'mi-btn' : 'mi-btn mi-btn-2'}
+                  style={{ marginTop: '0.875rem' }}
+                  onClick={() => request(o.id)}
+                >
+                  {on ? '\u2713  Activation requested' : o.ctaLabel}
                 </button>
-                {o.includedReason && (
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
-                    {o.includedReason}
-                  </p>
-                )}
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
+                  {on
+                    ? 'We\u2019ll have it live for your move-in date. Tap again to cancel.'
+                    : o.includedReason}
+                </p>
               </div>
             )
           }
@@ -76,11 +89,17 @@ export default function Services() {
               <div key={o.id} className="mi-card mi-card-p" style={{ marginBottom: '0.625rem' }}>
                 <div className="mi-opt-title">{o.name}</div>
                 <div className="mi-opt-blurb">{o.blurb}</div>
-                <button className="mi-btn mi-btn-2" style={{ marginTop: '0.875rem' }}>
-                  {o.ctaLabel}
+                <button
+                  className={on ? 'mi-btn' : 'mi-btn mi-btn-2'}
+                  style={{ marginTop: '0.875rem' }}
+                  onClick={() => request(o.id)}
+                >
+                  {on ? '\u2713  Consultation requested' : o.ctaLabel}
                 </button>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
-                  Takes about a minute. You&apos;ll pick an install time at the end.
+                  {on
+                    ? 'Someone will call to size it up. Nothing is charged until you approve a quote.'
+                    : 'Takes about a minute, and nothing is charged today.'}
                 </p>
               </div>
             )

@@ -337,6 +337,20 @@
   .mi-hatch a { color: var(--accent-hi); font-weight: 600; text-decoration: none; }
   .mi-hatch a:hover { text-decoration: underline; }
 
+  /* ── Demo bar ───────────────────────────────────────────────────────────
+     Only rendered while the app is on mock data. It exists so every control
+     inside the flow can produce its real production state — a resident should
+     feel the actual experience, and the honesty belongs in one place rather
+     than sprayed across every button. */
+  .mi-demo {
+    display: flex; align-items: center; justify-content: center; gap: 0.4375rem;
+    padding: 0.4375rem 1rem;
+    background: color-mix(in srgb, var(--warn) 13%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--warn) 26%, transparent);
+    color: var(--warn);
+    font-size: 0.6875rem; font-weight: 650; letter-spacing: 0.04em;
+  }
+
   /* ── Gate Guard, subordinate ────────────────────────────────────────────── */
   .mi-gg {
     text-align: center; padding: 1.5rem 1.125rem 2rem;

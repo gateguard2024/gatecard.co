@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+
 import { StepRail, money } from '@/components/chrome'
 import { useMoveIn } from '../state'
 import type { ConfirmationItem, ItemState } from '@/lib/types'
@@ -27,6 +29,13 @@ export default function Confirmation() {
   const siteSlug = ctx.property.slug
 
   const tier = ctx.parkingTiers.find(t => t.id === (s.parkingTierId || 'surface'))
+  const [walletAdded, setWalletAdded] = useState(false)
+
+  const { firstName, lastName, unitNumber } = ctx.resident
+  const directoryName =
+    s.directoryFormat === 'full' ? `${firstName} ${lastName}`
+    : s.directoryFormat === 'unit_only' ? `Unit ${unitNumber}`
+    : `${firstName} ${lastName.charAt(0).toUpperCase()}.`
 
   const items: ConfirmationItem[] = [
     {
@@ -65,6 +74,27 @@ export default function Confirmation() {
         rail: 'card' as const,
       }
     }),
+    {
+      id: 'directory',
+      label: s.directoryListed ? 'Listed at the callbox' : 'Not listed at the callbox',
+      detail: s.directoryListed
+        ? `Guests see “${directoryName}”`
+        : 'Guests can’t look you up — let them in from your phone',
+      state: 'working_now' as ItemState,
+      rail: 'included' as const,
+    },
+    ...s.requested.map(id => {
+      const o = ctx.services.find(x => x.id === id)!
+      return {
+        id: `req-${id}`,
+        label: o.mode === 'quote' ? `${o.name} consultation` : `${o.name} activation`,
+        detail: o.mode === 'quote'
+          ? 'Someone will call to size it up — nothing charged yet'
+          : `${o.provider} · live for your move-in date`,
+        state: 'scheduled' as ItemState,
+        rail: 'included' as const,
+      }
+    }),
     ...s.services.map(id => {
       const o = ctx.services.find(x => x.id === id)!
       return {
@@ -99,11 +129,18 @@ export default function Confirmation() {
           Unit {ctx.resident.unitNumber}. Walk up to the gate and your phone will open it.
         </p>
 
-        <button className="mi-btn" style={{ marginBottom: '0.5rem' }}>
-          Add your key to Apple Wallet
+        <button
+          className="mi-btn"
+          style={{ marginBottom: '0.5rem' }}
+          onClick={() => setWalletAdded(true)}
+          disabled={walletAdded}
+        >
+          {walletAdded ? '\u2713  Added to Apple Wallet' : 'Add your key to Apple Wallet'}
         </button>
         <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', textAlign: 'center', margin: 0 }}>
-          Then it works from the lock screen, without opening an app.
+          {walletAdded
+            ? 'Hold your phone near the reader — no need to open anything.'
+            : 'Then it works from the lock screen, without opening an app.'}
         </p>
 
         {GROUPS.map(g => {
