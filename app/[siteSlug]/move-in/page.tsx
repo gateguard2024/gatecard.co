@@ -142,6 +142,29 @@ export default function Arrival() {
           </div>
         )}
 
+        {/*
+          A required field with no alternative is a dead end. Not everyone has
+          a mobile, and some people won't hand one over to a vendor — without a
+          way past this, they cannot get a key at all and the leasing office
+          gets the call instead.
+        */}
+        <details style={{ marginTop: '1rem' }}>
+          <summary style={{
+            cursor: 'pointer', fontSize: '0.8125rem', color: 'var(--accent-hi)',
+            fontWeight: 600, listStyle: 'none',
+          }}>
+            I don&apos;t have a mobile number
+          </summary>
+          <div className="mi-hatch" style={{ marginTop: '0.625rem' }}>
+            Your phone key needs a mobile number, but you don&apos;t have to use one.
+            The leasing office can issue you a fob or key tag at handover instead —
+            it works at the gate exactly the same way.
+            <div style={{ marginTop: '0.625rem' }}>
+              <a href={`tel:${property.leasingPhone}`}>Call {property.name}</a>
+            </div>
+          </div>
+        </details>
+
         <NotYourUnit property={property} />
       </div>
 
