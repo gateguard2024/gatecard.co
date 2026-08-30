@@ -6,6 +6,7 @@ import { money } from '@/components/chrome'
 import { StepNav } from '../nav'
 import { useMoveIn } from '../state'
 import { computeFee } from '@/lib/fees'
+import { buildReceipt } from '@/lib/receipt'
 import { formatMoveInDate } from '@/lib/dates'
 import type { ConfirmationItem, ItemState } from '@/lib/types'
 
@@ -37,6 +38,17 @@ export default function Confirmation() {
     fee: ctx.property.parkingFee,
     concession: ctx.resident.concession,
     termMonths: ctx.resident.leaseTermMonths,
+  })
+
+  // One document covering everything, with each line labelled by how it is
+  // paid. One receipt, not one charge — the lease-bound fee still never
+  // touches a card.
+  const receipt = buildReceipt({
+    ctx,
+    credentialKinds: s.extraCredentials,
+    cart: s.cart,
+    serviceIds: s.services,
+    requestedIds: s.requested,
   })
 
   const { firstName, lastName, unitNumber } = ctx.resident
@@ -180,52 +192,84 @@ export default function Confirmation() {
           )
         })}
 
-        {/* ── The two rails, separately. Never one combined total. ── */}
-        <div className="mi-state-h">Billing</div>
+        <div className="mi-state-h">Your move-in summary</div>
 
-        <div className="mi-card mi-card-p">
-          <div className="mi-fact" style={{ paddingTop: 0 }}>
-            <span className="mi-fact-k">
-              {ctx.property.parkingFee?.label ?? 'Part of your lease'}
-            </span>
-            <span className="mi-fact-v">
-              {fee
-                ? fee.netCents === 0 ? 'Covered' : `${money(fee.netCents)}/mo`
-                : tier && !tier.included ? `${money(tier.monthlyCents)}/mo` : 'Nothing extra'}
-            </span>
-          </div>
-          {fee && fee.coveredCents > 0 && (
-            <p style={{ fontSize: '0.75rem', color: 'var(--ok)', margin: '0 0 0.375rem' }}>
-              {ctx.resident.concession!.label} — {money(fee.coveredCents)}/mo of the{' '}
-              {money(fee.baseCents)} fee
-              {fee.revertsOn ? `, through ${formatMoveInDate(fee.revertsOn)}` : ''}.
-            </p>
-          )}
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0 0 0.25rem' }}>
-            Access and parking come with your unit at {ctx.property.name}. No card is kept
-            on file for them, and nothing here can affect whether your key works.
-          </p>
-        </div>
+        <div className="mi-card">
+          {receipt.lines.map((l, i) => (
+            <div key={l.id} className="mi-card-p"
+                 style={{ borderTop: i ? '1px solid var(--line)' : 'none',
+                          paddingTop: i ? '0.75rem' : undefined,
+                          paddingBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}>
+                <span className="mi-opt-title" style={{
+                  fontSize: '0.875rem',
+                  color: l.amountCents < 0 ? 'var(--ok)' : undefined,
+                }}>
+                  {l.label}
+                </span>
+                {/* Amounts only. A long note here collided with the label and
+                    broke the row — explanations belong on the detail line. */}
+                <span className="mi-fact-v" style={{
+                  whiteSpace: 'nowrap',
+                  color: l.amountCents < 0 ? 'var(--ok)'
+                       : l.amountCents === 0 ? 'var(--text-3)' : undefined,
+                }}>
+                  {l.amountCents === 0
+                    ? 'No charge'
+                    : `${l.amountCents < 0 ? '−' : ''}${money(Math.abs(l.amountCents))}${
+                        l.cadence === 'monthly' ? '/mo' : ''}`}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between',
+                            gap: '0.75rem', marginTop: '0.125rem' }}>
+                <span className="mi-opt-blurb" style={{ fontSize: '0.75rem' }}>
+                  {l.note ?? l.detail}
+                </span>
+                {/* The rail, on every line. This is what makes one document
+                    honest without pretending it is one payment. */}
+                <span style={{
+                  fontSize: '0.625rem', letterSpacing: '0.06em', textTransform: 'uppercase',
+                  color: 'var(--text-3)', whiteSpace: 'nowrap', fontWeight: 650,
+                }}>
+                  {l.rail === 'lease' ? 'With your lease' : 'Your card'}
+                </span>
+              </div>
+            </div>
+          ))}
 
-        {(cardTotal > 0 || monthly > 0) && (
-          <div className="mi-card mi-card-p" style={{ marginTop: '0.625rem' }}>
-            {cardTotal > 0 && (
-              <div className="mi-fact" style={{ paddingTop: 0 }}>
+          <div className="mi-card-p" style={{
+            borderTop: '1px solid var(--line-2)', background: 'var(--surface-sunk)',
+            borderRadius: '0 0 var(--r-card) var(--r-card)',
+          }}>
+            {receipt.hasLease && (
+              <div className="mi-fact" style={{ padding: '0.25rem 0', border: 'none' }}>
+                <span className="mi-fact-k">Monthly, with your lease</span>
+                <span className="mi-fact-v">
+                  {receipt.leaseMonthlyCents === 0
+                    ? 'Covered'
+                    : `${money(receipt.leaseMonthlyCents)}/mo`}
+                </span>
+              </div>
+            )}
+            {receipt.cardTodayCents > 0 && (
+              <div className="mi-fact" style={{ padding: '0.25rem 0', border: 'none' }}>
                 <span className="mi-fact-k">On your card today</span>
-                <span className="mi-fact-v">{money(cardTotal)}</span>
+                <span className="mi-fact-v">{money(receipt.cardTodayCents)}</span>
               </div>
             )}
-            {monthly > 0 && (
-              <div className="mi-fact">
-                <span className="mi-fact-k">On your card monthly</span>
-                <span className="mi-fact-v">{money(monthly)}/mo</span>
+            {receipt.cardMonthlyCents > 0 && (
+              <div className="mi-fact" style={{ padding: '0.25rem 0', border: 'none' }}>
+                <span className="mi-fact-k">Monthly, on your card</span>
+                <span className="mi-fact-v">{money(receipt.cardMonthlyCents)}/mo</span>
               </div>
             )}
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
-              Cancel any of these any time. None of it affects your access.
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.625rem 0 0' }}>
+              Two totals, not one — your lease and your card are billed
+              separately. Nothing on your card can affect whether your key works,
+              and no card is kept on file for the lease items.
             </p>
           </div>
-        )}
+        </div>
 
         <div className="mi-hatch" style={{ marginTop: '1.5rem' }}>
           Questions about your unit, your lease or your parking?{' '}
