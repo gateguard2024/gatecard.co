@@ -23,20 +23,6 @@ export default function Arrival() {
 
   const moveIn = formatMoveInDate(resident.moveInDate)
 
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  // Autofill writes straight to the DOM. Without this the field looks filled
-  // while state is still empty, and the button stays disabled for no visible
-  // reason — which reads as the form being broken.
-  useEffect(() => {
-    const el = inputRef.current
-    if (el && el.value && !s.mobile) set('mobile', format(el.value))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const digits = s.mobile.replace(/\D/g, '').slice(0, 10)
-  const ready = digits.length === 10
-
   /** Format as they type. A phone number is the one thing they hand-key here. */
   const format = (raw: string) => {
     const d = raw.replace(/\D/g, '').slice(0, 10)
@@ -44,6 +30,45 @@ export default function Arrival() {
     if (d.length <= 6) return `(${d.slice(0, 3)}) ${d.slice(3)}`
     return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`
   }
+
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  /**
+   * Keep React's state and the actual input in step, whatever put the value
+   * there.
+   *
+   * Chrome autofill writes straight to the DOM, sometimes after mount and
+   * sometimes without firing React's synthetic onChange. When that happens the
+   * field looks filled, state is still empty, and the button stays disabled
+   * with nothing on screen explaining why — the form reads as broken, which is
+   * exactly the moment a resident gives up and phones the leasing office.
+   *
+   * Native listeners catch what React misses; the timers catch autofill that
+   * lands after mount and fires nothing at all.
+   */
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+
+    const sync = () => {
+      const formatted = format(el.value)
+      if (formatted !== s.mobile) set('mobile', formatted)
+    }
+
+    el.addEventListener('input', sync)
+    el.addEventListener('change', sync)
+    const timers = [0, 150, 400, 900, 1800].map(ms => setTimeout(sync, ms))
+
+    return () => {
+      el.removeEventListener('input', sync)
+      el.removeEventListener('change', sync)
+      timers.forEach(clearTimeout)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.mobile])
+
+  const digits = s.mobile.replace(/\D/g, '').slice(0, 10)
+  const ready = digits.length === 10
 
   return (
     <>
@@ -96,8 +121,10 @@ export default function Arrival() {
             onChange={e => set('mobile', format(e.target.value))}
           />
           <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
-            This is what unlocks the gate from your phone, and where your
-            confirmation goes. We don&apos;t use it for marketing.
+            {digits.length > 0 && !ready
+              ? `${10 - digits.length} more digit${10 - digits.length === 1 ? '' : 's'} to go.`
+              : `This is what unlocks the gate from your phone, and where your
+                 confirmation goes. We don't use it for marketing.`}
           </p>
         </div>
 
