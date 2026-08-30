@@ -237,6 +237,53 @@ per screen, manual-add rate (sync quality), leasing tickets per move-in (renewal
 
 ---
 
+## MOVE-IN / MOVE-OUT DETECTION
+
+**Brivo does not push roster changes.** Its event subscriptions carry ACCESS
+events — door opens — over webhooks. User created/removed is not among them;
+every published Brivo integration polls the user endpoint on a schedule. So a
+move-in is *detected*, not *received*: it is a Brivo user id we have never seen
+at this site. A move-out is a user id that stopped appearing.
+
+That makes absence the move-out signal, and **absence lies**. A truncated page,
+a 500 on page 4, or a PMS blip look exactly like residents leaving. The previous
+sync deactivated every resident missing from a single fetch with no guard — one
+bad response would have emptied a property's intercom directory.
+
+Four defences, all in `lib/reconcile.ts`, which is pure and tested:
+
+1. **Baseline mode.** A site's first run adopts the whole roster as pre-existing
+   and fires nothing. Onboarding 832 units must not send 832 welcome emails.
+   Leaving baseline is a deliberate act — never inferred.
+2. **Incomplete fetch proves nothing.** A run that didn't page cleanly can never
+   conclude a move-out.
+3. **Shrink guard.** A roster that fell more than the site's threshold is a bad
+   pull, not an exodus. The run records what it *would* have done, emails staff,
+   and changes nothing.
+4. **Confirmation runs + grace period.** Absent from N consecutive clean runs
+   AND past the grace window. Removed and re-added inside it produces no event.
+
+Other cases that are neither move-in nor move-out: an **internal transfer**
+(unit changes, parking follows, credential doesn't) and a **return** after a
+previous move-out (a new tenancy, treated like a fresh move-in — which is why
+tenancies are their own table and notifications key on them, not on the person).
+
+**On move-out, three things must happen** or they become support calls:
+recurring subscriptions end, the parking space is released back to inventory,
+and outstanding invite links are revoked. Credentials are NOT revoked from here
+— Brivo removing them *is* the revocation, and the PMS is master.
+
+**Resident emails are gated per site** (`auto_invite_residents`, default false).
+Staff get one digest per run; residents get individual invites. Auto-mailing
+real people off a roster nobody has watched yet is a one-time mistake.
+
+**Known gap: Brivo carries no unit number natively.** The previous sync never
+populated one — every row it wrote had a null unit, which a unit-scoped portal
+cannot use. `sites.brivo_unit_field` names the custom field per property. A
+resident with no unit is flagged to staff, never silently onboarded.
+
+---
+
 ## WHERE THINGS LIVE
 
 | Path | What it is |
@@ -255,6 +302,12 @@ per screen, manual-add rate (sync quality), leasing tickets per move-in (renewal
 | `app/api/checkout` | Card rail. Prices re-read server-side, never trusted from the client. |
 | `app/api/webhooks/stripe` | Replay-safe. No path from a declined card to a credential. |
 | `app/api/health` | Which integrations are actually wired. |
+| `lib/reconcile.ts` | Pure move-in/move-out diff. 27 assertions. The guards live here. |
+| `lib/lifecycle.ts` | Fetch, apply, notify. The reconciler decides; this acts. |
+| `lib/notify.ts` | Resend + templates. Every send claims an idempotency key first. |
+| `app/api/sync/brivo` | Per-site roster sync. One property failing never stops the others. |
+| `supabase/migrations/201_resident_lifecycle.sql` | Tenancies, lifecycle events, sync runs, invites. |
+| `supabase/migrations/202_brivo_site_credentials.sql` | Per-site Brivo creds + unit field mapping. |
 
 **Current state: no env is set, so the portal runs on mock data.** `/api/health`
 reports what is live. Endpoints that need a service return 503 with the reason

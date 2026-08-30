@@ -20,6 +20,7 @@ export const configured = {
   shopify:  () => has('SHOPIFY_STORE_DOMAIN', 'SHOPIFY_STOREFRONT_ACCESS_TOKEN'),
   inngest:  () => has('INNGEST_EVENT_KEY'),
   twilio:   () => has('TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM_NUMBER'),
+  resend:   () => has('RESEND_API_KEY', 'RESEND_FROM_EMAIL'),
 }
 
 /** Days a commission is held before release. Refunds land inside this window. */

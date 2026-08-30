@@ -22,6 +22,7 @@ export async function GET() {
       shopify: configured.shopify(),
       inngest: configured.inngest(),
       twilio: configured.twilio(),
+      resend: configured.resend(),
     },
   })
 }
