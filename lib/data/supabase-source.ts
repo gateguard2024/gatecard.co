@@ -40,7 +40,8 @@ export async function fetchMoveInContext(
   // scheduled move-in at this property. Auth replaces the fallback.
   const residentQ = db
     .from('residents')
-    .select('id, first_name, last_name, unit_number, email, phone, move_in_date, household_id')
+    .select('id, first_name, last_name, unit_number, email, phone, move_in_date, ' +
+            'household_id, lease_term_months, lease_end_date')
     .eq('site_id', site.id)
     .eq('active', true)
 
@@ -52,7 +53,7 @@ export async function fetchMoveInContext(
   if (resErr) throw resErr
   if (!resident) return null
 
-  const [creds, tiers, avail, offers, store, household] = await Promise.all([
+  const [creds, tiers, avail, offers, store, household, concession] = await Promise.all([
     db.from('site_credential_options')
       .select('kind, label, blurb, price_cents, is_default, is_physical, delivery_note')
       .eq('site_id', site.id).eq('active', true).order('sort_order')
@@ -84,6 +85,16 @@ export async function fetchMoveInContext(
           .eq('household_id', resident.household_id)
           .neq('id', resident.id).returns<HouseholdRow[]>()
       : Promise.resolve({ data: [] as HouseholdRow[], error: null }),
+
+    db.from('resident_concessions')
+      .select('covers_cents, label, months, ends_on')
+      .eq('resident_id', resident.id)
+      .eq('status', 'active')
+      .maybeSingle()
+      .returns<{
+        covers_cents: number; label: string | null
+        months: number | null; ends_on: string | null
+      }>(),
   ])
 
   for (const r of [creds, tiers, avail, offers, store, household]) {
@@ -135,6 +146,16 @@ export async function fetchMoveInContext(
       householdMembers: (household.data ?? []).map(m => ({
         firstName: m.first_name, lastName: m.last_name, invited: false,
       })),
+      leaseTermMonths: resident.lease_term_months,
+      leaseEndDate: resident.lease_end_date,
+      concession: concession.data
+        ? {
+            coversCents: concession.data.covers_cents,
+            label: concession.data.label ?? `Covered by ${site.name}`,
+            months: concession.data.months,
+            endsOn: concession.data.ends_on,
+          }
+        : null,
     },
 
     credentials: (creds.data ?? []).map((c): CredentialOption => ({

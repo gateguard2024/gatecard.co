@@ -59,6 +59,17 @@ export interface ResidentIdentity {
   mobile: string | null
   /** Other people on the lease. Each gets their own link — never a shared session. */
   householdMembers: { firstName: string; lastName: string; invited: boolean }[]
+
+  /**
+   * Lease term in months. Short terms are common — 3, 6 and 9-month leases,
+   * corporate stays, sublets — and the fee has to behave sensibly for them
+   * rather than assuming twelve.
+   */
+  leaseTermMonths: number | null
+  leaseEndDate: string | null
+
+  /** Granted by the property. Null when the resident pays the full fee. */
+  concession: Concession | null
 }
 
 // ── Screen 02 — access credentials ───────────────────────────────────────────
@@ -95,6 +106,30 @@ export interface ParkingFee {
   monthlyCents: number
   /** What it covers, in the property's words. */
   covers: string
+}
+
+/**
+ * A concession against the parking and amenity fee.
+ *
+ * The property comps a resident's fee — all of it or part — as a leasing
+ * concession, and buys them in blocks (see site_concession_passes). The
+ * resident never buys one; it is granted to them.
+ *
+ * Shown on the fee card as a deduction with the property's name on it, because
+ * a concession the resident can't see is one they can't be grateful for, and
+ * one nobody can query when it lapses.
+ */
+export interface Concession {
+  /** Cents per month covered by the property. */
+  coversCents: number
+  /** Who granted it, in the resident's words: "Covered by East Ponds". */
+  label: string
+  /**
+   * How long it runs. Null means for the whole lease term — worth stating,
+   * because a concession that quietly expires mid-lease generates a call.
+   */
+  months: number | null
+  endsOn: string | null
 }
 
 export interface ParkingTier {

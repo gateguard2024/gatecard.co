@@ -50,6 +50,16 @@ const eastPonds: MoveInContext = {
     moveInDate: '2026-09-05',
     email: 'm.ellison@example.com', mobile: null,
     householdMembers: [{ firstName: 'Andre', lastName: 'Ellison', invited: false }],
+    leaseTermMonths: 12,
+    leaseEndDate: '2027-09-04',
+    // Partial, and it runs out before the lease does — the case most likely to
+    // produce a confused call in month seven.
+    concession: {
+      coversCents: 1000,
+      label: 'Covered by East Ponds',
+      months: 6,
+      endsOn: '2027-03-04',
+    },
   },
   credentials: [
     { kind: 'phone', label: 'Phone key', priceCents: 0, isDefault: true, isPhysical: false,
@@ -129,6 +139,10 @@ const campCreek: MoveInContext = {
     moveInDate: '2026-09-12',
     email: 'd.okafor@example.com', mobile: null,
     householdMembers: [],
+    // A nine-month lease. Short terms are common and the fee has to behave.
+    leaseTermMonths: 9,
+    leaseEndDate: '2027-06-11',
+    concession: null,
   },
   credentials: [
     { kind: 'phone', label: 'Phone key', priceCents: 0, isDefault: true, isPhysical: false,
@@ -196,6 +210,14 @@ const lyvBuckhead: MoveInContext = {
       { firstName: 'Nikhil', lastName: 'Raman', invited: true },
       { firstName: 'Asha', lastName: 'Raman', invited: false },
     ],
+    leaseTermMonths: 12,
+    leaseEndDate: '2027-08-31',
+    concession: {
+      coversCents: 7500,
+      label: 'Covered by LYV Buckhead',
+      months: null,        // the whole lease
+      endsOn: null,
+    },
   },
   credentials: [
     { kind: 'phone', label: 'Phone key', priceCents: 0, isDefault: true, isPhysical: false,
@@ -248,7 +270,7 @@ export const DEMO_NOTES: Record<string, { headline: string; points: string[] }> 
     points: [
       'Internet is included, so its card is an activation helper with no price',
       'DirecTV is unavailable here and never renders at all',
-      'No parking tiers sold here, so screen 3 is just the parking pass',
+      'A partial concession that expires before the lease does',
       'Insurance is flagged as required by the lease',
       'A second person on the lease gets their own link, not a shared session',
     ],
@@ -261,12 +283,13 @@ export const DEMO_NOTES: Record<string, { headline: string; points: string[] }> 
       'The store carries credentials only, no merch programme',
       'One credential option instead of three',
       'Directory listing is mandatory — the gate is unstaffed',
+      'A nine-month lease, so the fee is shown for the real term',
     ],
   },
   'lyv-buckhead': {
     headline: 'Nothing included — every parking tier is paid',
     points: [
-      'The highest parking & amenity fee of the three',
+      'The fee is fully comped by the property for the whole lease',
       'Two household members, one already invited',
       'A different accent colour, applied from the property record alone',
     ],

@@ -39,6 +39,8 @@ export interface ResidentRow {
   phone: string | null
   move_in_date: string | null
   household_id: string | null
+  lease_term_months: number | null
+  lease_end_date: string | null
 }
 
 export interface HouseholdRow {

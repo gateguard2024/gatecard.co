@@ -3,6 +3,8 @@
 import { StepFooter, Check, money } from '@/components/chrome'
 import { StepNav } from '../nav'
 import { useMoveIn } from '../state'
+import { computeFee } from '@/lib/fees'
+import { formatMoveInDate } from '@/lib/dates'
 
 /**
  * 03 · Parking
@@ -28,6 +30,12 @@ import { useMoveIn } from '../state'
 export default function Parking() {
   const { ctx, s, set } = useMoveIn()
   const siteSlug = ctx.property.slug
+
+  const fee = computeFee({
+    fee: ctx.property.parkingFee,
+    concession: ctx.resident.concession,
+    termMonths: ctx.resident.leaseTermMonths,
+  })
 
   const tiersOffered = ctx.parkingTiers.length > 0
   const chosen = s.parkingTierId || ctx.parkingTiers.find(t => t.included)?.id || ''
@@ -67,21 +75,63 @@ export default function Parking() {
           into the lease, so presenting it as a choice would be a lie, and
           burying it would be worse.
         */}
-        {ctx.property.parkingFee && (
+        {fee && (
           <div className="mi-card mi-card-p">
             <div style={{ display: 'flex', justifyContent: 'space-between',
                           gap: '0.75rem', alignItems: 'baseline' }}>
-              <span className="mi-opt-title">{ctx.property.parkingFee.label}</span>
-              <span className="mi-price">
-                {money(ctx.property.parkingFee.monthlyCents)}/mo
+              <span className="mi-opt-title">{ctx.property.parkingFee!.label}</span>
+              <span className="mi-price"
+                    data-free={fee.fullyCovered ? 'true' : 'false'}>
+                {fee.fullyCovered ? 'Covered' : `${money(fee.netCents)}/mo`}
               </span>
             </div>
-            {ctx.property.parkingFee.covers && (
-              <div className="mi-opt-blurb">{ctx.property.parkingFee.covers}</div>
+
+            {ctx.property.parkingFee!.covers && (
+              <div className="mi-opt-blurb">{ctx.property.parkingFee!.covers}</div>
             )}
+
+            {/* A concession the resident can't see is one they can't be
+                grateful for, and one nobody can query when it lapses. */}
+            {fee.coveredCents > 0 && (
+              <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem',
+                            borderTop: '1px solid var(--line)' }}>
+                <div className="mi-fact" style={{ padding: '0.1875rem 0' }}>
+                  <span className="mi-fact-k">Fee</span>
+                  <span className="mi-fact-v">{money(fee.baseCents)}/mo</span>
+                </div>
+                <div className="mi-fact" style={{ padding: '0.1875rem 0', border: 'none' }}>
+                  <span className="mi-fact-k" style={{ color: 'var(--ok)' }}>
+                    {ctx.resident.concession!.label}
+                  </span>
+                  <span className="mi-fact-v" style={{ color: 'var(--ok)' }}>
+                    −{money(fee.coveredCents)}/mo
+                  </span>
+                </div>
+                <div className="mi-fact" style={{ padding: '0.375rem 0 0' }}>
+                  <span className="mi-fact-k">You pay</span>
+                  <span className="mi-fact-v">
+                    {fee.netCents === 0 ? 'Nothing' : `${money(fee.netCents)}/mo`}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* The payment going UP partway through a lease is the single most
+                complaint-generating thing here. Say it now. */}
+            {fee.revertsOn && (
+              <div className="mi-opt-note" style={{ color: 'var(--warn)' }}>
+                This covers your first {ctx.resident.concession!.months} months.
+                From {formatMoveInDate(fee.revertsOn)} the fee returns to{' '}
+                {money(fee.revertsCents!)}/mo.
+              </div>
+            )}
+
             <div className="mi-opt-note">
               Part of your lease at {ctx.property.name}. Nothing is charged here,
               and no card is kept on file for it.
+              {fee.shortTerm && ctx.resident.leaseTermMonths
+                ? ` Your lease runs ${ctx.resident.leaseTermMonths} months.`
+                : ''}
             </div>
           </div>
         )}

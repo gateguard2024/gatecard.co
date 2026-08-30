@@ -5,6 +5,8 @@ import { useState } from 'react'
 import { money } from '@/components/chrome'
 import { StepNav } from '../nav'
 import { useMoveIn } from '../state'
+import { computeFee } from '@/lib/fees'
+import { formatMoveInDate } from '@/lib/dates'
 import type { ConfirmationItem, ItemState } from '@/lib/types'
 
 /**
@@ -31,6 +33,11 @@ export default function Confirmation() {
 
   const tier = ctx.parkingTiers.find(t => t.id === (s.parkingTierId || 'surface'))
   const [walletAdded, setWalletAdded] = useState(false)
+  const fee = computeFee({
+    fee: ctx.property.parkingFee,
+    concession: ctx.resident.concession,
+    termMonths: ctx.resident.leaseTermMonths,
+  })
 
   const { firstName, lastName, unitNumber } = ctx.resident
   const directoryName =
@@ -182,11 +189,18 @@ export default function Confirmation() {
               {ctx.property.parkingFee?.label ?? 'Part of your lease'}
             </span>
             <span className="mi-fact-v">
-              {ctx.property.parkingFee
-                ? `${money(ctx.property.parkingFee.monthlyCents)}/mo`
+              {fee
+                ? fee.netCents === 0 ? 'Covered' : `${money(fee.netCents)}/mo`
                 : tier && !tier.included ? `${money(tier.monthlyCents)}/mo` : 'Nothing extra'}
             </span>
           </div>
+          {fee && fee.coveredCents > 0 && (
+            <p style={{ fontSize: '0.75rem', color: 'var(--ok)', margin: '0 0 0.375rem' }}>
+              {ctx.resident.concession!.label} — {money(fee.coveredCents)}/mo of the{' '}
+              {money(fee.baseCents)} fee
+              {fee.revertsOn ? `, through ${formatMoveInDate(fee.revertsOn)}` : ''}.
+            </p>
+          )}
           <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0 0 0.25rem' }}>
             Access and parking come with your unit at {ctx.property.name}. No card is kept
             on file for them, and nothing here can affect whether your key works.
