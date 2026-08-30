@@ -70,6 +70,16 @@ export interface ResidentIdentity {
 
   /** Granted by the property. Null when the resident pays the full fee. */
   concession: Concession | null
+
+  /** The community-store welcome code. Null where the property has no store. */
+  storeCode: StoreCode | null
+}
+
+export interface StoreCode {
+  code: string
+  percentOff: number
+  expiresOn: string
+  storeUrl: string
 }
 
 // ── Screen 02 — access credentials ───────────────────────────────────────────

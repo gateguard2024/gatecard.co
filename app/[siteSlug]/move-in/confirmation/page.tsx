@@ -271,6 +271,28 @@ export default function Confirmation() {
           </div>
         </div>
 
+        {ctx.resident.storeCode && (
+          <div className="mi-card mi-card-p" style={{ marginTop: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span className="mi-opt-title" style={{ flex: 1 }}>Community store</span>
+              <span className="mi-badge">{ctx.resident.storeCode.percentOff}% off</span>
+            </div>
+            <div style={{
+              marginTop: '0.625rem', padding: '0.625rem',
+              background: 'var(--surface-sunk)', borderRadius: 'var(--r-btn)',
+              border: '1px dashed var(--line-2)', textAlign: 'center',
+              fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+              fontSize: '1rem', fontWeight: 700, letterSpacing: '0.08em',
+            }}>
+              {ctx.resident.storeCode.code}
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
+              One use, expires {formatMoveInDate(ctx.resident.storeCode.expiresOn)}. It&apos;s
+              in your email too.
+            </p>
+          </div>
+        )}
+
         <div className="mi-hatch" style={{ marginTop: '1.5rem' }}>
           Questions about your unit, your lease or your parking?{' '}
           <a href={`tel:${ctx.property.leasingPhone}`}>Call the {ctx.property.name} office</a>

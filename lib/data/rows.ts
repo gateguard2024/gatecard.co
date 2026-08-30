@@ -28,6 +28,7 @@ export interface SiteRow {
   parking_fee_label: string | null
   parking_fee_cents: number | null
   parking_fee_covers: string | null
+  store_url: string | null
 }
 
 export interface ResidentRow {

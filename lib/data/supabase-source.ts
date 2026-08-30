@@ -27,7 +27,7 @@ export async function fetchMoveInContext(
     .select('id, slug, name, address, city, state, accent_color, logo_url, ' +
             'leasing_phone, leasing_hours, support_email, move_in_enabled, ' +
             'directory_mode, directory_default_listed, directory_formats, directory_note, ' +
-            'parking_fee_label, parking_fee_cents, parking_fee_covers')
+            'parking_fee_label, parking_fee_cents, parking_fee_covers, store_url')
     .eq('slug', slug)
     .eq('move_in_enabled', true)
     .maybeSingle()
@@ -53,7 +53,8 @@ export async function fetchMoveInContext(
   if (resErr) throw resErr
   if (!resident) return null
 
-  const [creds, tiers, avail, offers, store, household, concession] = await Promise.all([
+  const [creds, tiers, avail, offers, store, household, concession, storeCode] =
+    await Promise.all([
     db.from('site_credential_options')
       .select('kind, label, blurb, price_cents, is_default, is_physical, delivery_note')
       .eq('site_id', site.id).eq('active', true).order('sort_order')
@@ -95,6 +96,13 @@ export async function fetchMoveInContext(
         covers_cents: number; label: string | null
         months: number | null; ends_on: string | null
       }>(),
+
+    db.from('resident_store_codes')
+      .select('code, percent_off, expires_at')
+      .eq('resident_id', resident.id)
+      .eq('status', 'active')
+      .maybeSingle()
+      .returns<{ code: string; percent_off: number; expires_at: string }>(),
   ])
 
   for (const r of [creds, tiers, avail, offers, store, household]) {
@@ -148,6 +156,14 @@ export async function fetchMoveInContext(
       })),
       leaseTermMonths: resident.lease_term_months,
       leaseEndDate: resident.lease_end_date,
+      storeCode: storeCode.data && site.store_url
+        ? {
+            code: storeCode.data.code,
+            percentOff: Number(storeCode.data.percent_off),
+            expiresOn: storeCode.data.expires_at,
+            storeUrl: site.store_url,
+          }
+        : null,
       concession: concession.data
         ? {
             coversCents: concession.data.covers_cents,

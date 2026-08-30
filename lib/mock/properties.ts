@@ -60,6 +60,12 @@ const eastPonds: MoveInContext = {
       months: 6,
       endsOn: '2027-03-04',
     },
+   storeCode: {
+      code: 'EASTPO-K7M4QX',
+      percentOff: 15,
+      expiresOn: '2026-10-05',
+      storeUrl: 'https://store.gateguard.example',
+    },
   },
   credentials: [
     { kind: 'phone', label: 'Phone key', priceCents: 0, isDefault: true, isPhysical: false,
@@ -143,6 +149,12 @@ const campCreek: MoveInContext = {
     leaseTermMonths: 9,
     leaseEndDate: '2027-06-11',
     concession: null,
+   storeCode: {
+      code: 'CAMPCR-T2R9BW',
+      percentOff: 15,
+      expiresOn: '2026-10-05',
+      storeUrl: 'https://store.gateguard.example',
+    },
   },
   credentials: [
     { kind: 'phone', label: 'Phone key', priceCents: 0, isDefault: true, isPhysical: false,
@@ -217,6 +229,12 @@ const lyvBuckhead: MoveInContext = {
       label: 'Covered by LYV Buckhead',
       months: null,        // the whole lease
       endsOn: null,
+    },
+   storeCode: {
+      code: 'LYVBUC-H5N8PZ',
+      percentOff: 15,
+      expiresOn: '2026-10-05',
+      storeUrl: 'https://store.gateguard.example',
     },
   },
   credentials: [

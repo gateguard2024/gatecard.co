@@ -2,130 +2,87 @@
 
 ## What Shopify is for here
 
-The community store is **dropship**. Supplier routing, tracking sync, returns
-and multi-state sales tax on physical goods is months of work that
-differentiates nothing. Shopify already does it, so it owns the merch
-catalogue and the fulfilment.
+The community store is **dropship**, and it now runs entirely inside Shopify.
+The resident buys there, with a personal discount code we issue.
 
-**What it is not for: credentials.** A fob or key tag has to be enrolled in
-Brivo against a named resident at a specific property, and no dropship supplier
-can do that. Those stay in `site_store_products` and are fulfilled through the
-provisioning queue. The resident sees one grid and cannot tell them apart —
-`fulfilment` is what tells the order handler.
+**Credentials do not go to Shopify.** A fob or key tag is a Brivo enrollment
+against a named resident, shipped from Gate Guard stock. Those stay in our
+checkout and our provisioning queue.
 
-## The decision that was made: one checkout, in the portal
+## The decision, and the one it replaced
 
-The resident pays once, on Stripe, inside the portal. Two checkouts in one flow
-is a drop-off cliff, and merch paid for on Shopify's own checkout never reaches
-the Stripe Connect commission ledger — dealers would earn nothing on store
-sales.
+An earlier design charged merch on Stripe inside the portal and then created the
+Shopify order over the Admin API. One interface, one payment. It also meant
+inheriting four things Shopify already did:
 
-**The trap in that decision:** Shopify's checkout is also what calculates tax
-and shipping, and what triggers fulfilment. Taking payment on Stripe means we
-inherit all three.
-
-| Job | Normally Shopify | Now ours |
+| | Portal checkout | Store code |
 |---|---|---|
-| Take payment | Shopify checkout | **Stripe** (keeps the commission ledger whole) |
-| Sales tax | Shopify Tax | **Stripe Tax**, or a flat assumption we can defend |
-| Shipping cost | Shopify rates | **Flat rate per property** to start |
-| Tell the supplier to ship | Automatic on order | **Admin API order creation, by us** |
-| Tracking, returns | Shopify | Shopify (unchanged) |
+| Sales tax | Ours — Stripe Tax, and a tax position to own | Shopify |
+| Shipping rates | Ours — flat rate per property | Shopify |
+| Delivery address | Derived; the resident can't choose | The resident chooses |
+| Fulfilment | Admin API order creation, queued and retried | Native |
+| Charged but not shipped | Real risk, needed a queue and a daily view | **Cannot happen** |
+| Refunds | Two systems to keep in step | One |
 
-That fourth row is the one people forget. Charge on Stripe, never create the
-Shopify order, and the resident pays while nothing ever ships.
+That last row is why this is better. When the money and the order are one
+transaction, the whole failure mode disappears rather than being defended
+against.
 
-## How it works now
+**What it costs, and how it's recovered.** Merch revenue no longer passes
+through Stripe, so it doesn't reach the Connect commission ledger on its own.
+The code recovers it: single-use and personal, so a Shopify `orders/create`
+webhook naming the code names the resident, and the commission entry is written
+from that. Much less machinery than creating orders.
 
-```
-resident checks out in the portal
-        │
-        ▼
-Stripe PaymentIntent          ← one payment, one interface
-  goods + shipping
-  Stripe Tax from the destination
-        │  webhook: payment_intent.succeeded
-        ▼
-order marked paid  →  event: order/fulfil
-        │
-        ▼
-provisioning job 'shopify_order'   ← QUEUED, retried 5×, visible to staff
-        │
-        ▼
-Shopify orderCreate (financialStatus: PAID)
-        │
-        ▼
-supplier ships · tracking flows back through Shopify
-```
+**A side effect worth having.** Merch moves out of the move-in minute and into
+the follow-up sequence — day 3, day 10, day 30 — which is where the handoff
+says the revenue actually arrives. A code in every follow-up email is how a
+store gets repeat visits; a one-time cart at move-in is not.
 
-**Why the Shopify call is queued and not inline in the webhook.** By the time it
-runs, the money is already taken. If it fails inline, the resident has paid and
-nothing ships, and the only trace is a 500 in a log. Queued, it retries, and a
-row appears in `unfulfilled_paid_orders` — which is the view someone should look
-at daily, because a row there is a resident who paid for something nobody is
-shipping.
+## The code
 
-**Why not create the Shopify order first and charge second.** Every abandoned
-card would leave an unpaid order in Shopify to reconcile. Worse problem.
-
-**Idempotency, twice.** The queue key is `shopify:{orderId}`, and the order row
-is only updated `where shopify_order_id is null`. A replayed Stripe webhook or a
-retried job cannot produce two orders.
-
-**Shipping address.** Dropship needs one and the flow never asked. We know it —
-the resident is moving into a known unit at a known property — so it is derived
-rather than collected. `sites.merch_ship_to` decides between the unit and
-`c/o Leasing Office`, because a resident moving in on the 5th may not be able to
-receive a parcel at the unit before then. If a property has no complete address,
-checkout refuses with a clear reason rather than shipping into a void.
-
-## Still to decide before checkout is wired
-
-1. **Tax.** Physical goods shipped to residents create nexus questions. Stripe
-   Tax handles it for a fee; a flat rate does not, and getting it wrong is a
-   liability rather than a bug. **This needs an answer from someone who owns
-   the tax position, not a default from me.**
-2. **Shipping.** Flat rate per property is fine for six SKUs. It stops being
-   fine when the store grows, which is the stated intention.
-3. **Refunds.** A refund has to happen in both systems, or Shopify shows paid
-   and Stripe shows refunded forever.
-
-Tax is the one that needs an owner. `automatic_tax` is not switched on yet —
-the PaymentIntent carries the shipping destination so Stripe Tax *can* compute
-it, but enabling it is a decision about your tax position, not a default I
-should pick. Until then the charge is goods plus flat shipping, with no tax
-line.
+- **15% off, single use, 30 days**, one live code per resident.
+- Format `EASTPO-K7M4QX` — a property prefix someone can read down the phone,
+  plus randomness so codes can't be enumerated. No I, O, 0 or 1, because
+  residents read these off a screen.
+- Enforced single-use on both axes in Shopify: `usageLimit: 1` stops the code
+  being shared, `appliesOncePerCustomer` stops one account reusing it.
+- **Revoked automatically at move-out**, by a trigger on `resident_tenancies`.
+  A welcome discount still working for someone who left in March is a small
+  leak that never stops.
+- Shown on screen 05 and screen 06, and sent by email — the resident should
+  never have to come back to the portal to find it.
 
 ## Setting the store up
 
-1. Create one Shopify store — **not one per property**. A store per property
-   means a Shopify account per property, which will not survive a dealer
-   channel.
-2. Collections:
-   - `community-store` — products every property sees
-   - one per property, handle matching the site slug (`east-ponds`)
-   A product can be in both; it is de-duplicated on the way in.
+1. One Shopify store, **not one per property** — a store per property means a
+   Shopify account per property, which will not survive a dealer channel.
+2. Collections: `community-store` for everything, plus one per property named
+   by site slug (`east-ponds`) if you want property-branded merch.
 3. Custom app (Settings → Apps → Develop apps):
-   - **Storefront API** token, scope `unauthenticated_read_product_listings`
-     → `SHOPIFY_STOREFRONT_ACCESS_TOKEN` (public, read-only, safe in the client)
-   - **Admin API** token, scopes `write_orders`, `read_products`
-     → `SHOPIFY_ADMIN_ACCESS_TOKEN` (secret, server only, never in the browser)
+   - **Storefront API** token, `unauthenticated_read_product_listings`
+     → `SHOPIFY_STOREFRONT_ACCESS_TOKEN` (public, read-only)
+   - **Admin API** token, `write_discounts`, `read_orders`, `read_products`
+     → `SHOPIFY_ADMIN_ACCESS_TOKEN` (secret, server only)
+
+   Note `write_orders` is no longer needed — nothing creates orders any more.
 4. Env:
    ```
    SHOPIFY_STORE_DOMAIN=gateguard-store.myshopify.com
    SHOPIFY_STOREFRONT_ACCESS_TOKEN=...
    SHOPIFY_ADMIN_ACCESS_TOKEN=...
-   SHOPIFY_SHARED_COLLECTION=community-store
    ```
+5. Per property: `sites.store_url`, `sites.store_discount_percent` (default 15),
+   `sites.store_code_days` (default 30). No `store_url` disables the store for
+   that property and the card never renders.
 
-The catalogue appears as soon as the Storefront token is set — no code change.
-Without it, the store falls back to the credential items alone, and a Shopify
-outage does the same rather than emptying the store or blocking a move-in.
+## Still to do
 
-## Growing the store later
-
-The stated intention is residents shopping the store beyond move-in. That is a
-different surface — a standalone `/[siteSlug]/store` outside the move-in flow,
-with its own cart and order history — and it is the point at which flat-rate
-shipping and a hand-rolled tax assumption stop being defensible. Worth
-revisiting the checkout decision then; the catalogue layer does not change.
+- **Issue the code on activation.** The `store_code` provisioning job kind
+  exists; the handler that calls `createResidentDiscountCode` is not written.
+  Until then codes come from the mock data.
+- **`orders/create` webhook** to mark a code redeemed and write the commission
+  entry. Without it, store revenue is invisible to the ledger.
+- **The retired path.** `createFulfilmentOrder()` in lib/shopify.ts is kept for
+  reference and clearly marked. Don't re-wire it without re-reading this file —
+  the reasons it was retired are the same reasons it looked attractive.

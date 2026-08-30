@@ -3,17 +3,24 @@
 import Link from 'next/link'
 import { money } from '@/components/chrome'
 import { StepNav } from '../nav'
+import { formatMoveInDate } from '@/lib/dates'
 import { useMoveIn } from '../state'
 
 /**
- * 05 · Store
+ * 05 · Spares and the community store
  *
- * The only real cart in the portal.
+ * Two different things, deliberately separated now.
  *
- * Credential items (fobs, key tags) and dropship merch sit in one grid on
- * purpose — the resident cannot tell them apart and shouldn't. The order
- * handler must: 'credential' routes to Brivo enrollment, 'merch' routes to the
- * dropship supplier (D5). That distinction is in the data, never in the UI.
+ * Credential items — fobs, key tags — are ours. They are Brivo enrollments
+ * shipped from Gate Guard stock, so they stay in our checkout and our cart.
+ *
+ * Merch is Shopify's, reached with a personal code rather than bought here.
+ * That puts tax, shipping rates, delivery address, inventory and refunds back
+ * where they were already solved, and makes charged-but-not-shipped impossible
+ * — the money and the order become one transaction.
+ *
+ * It also moves merch out of the move-in minute and into the follow-up
+ * sequence, which is where the revenue actually arrives.
  */
 export default function Store() {
   const { ctx, s, set } = useMoveIn()
@@ -27,20 +34,24 @@ export default function Store() {
     set('cart', cart)
   }
 
-  const total = ctx.store.reduce((n, p) => n + p.priceCents * qty(p.id), 0)
+  // Only our own items are purchasable here.
+  const items = ctx.store.filter(p => p.fulfilment === 'credential')
+  const total = items.reduce((n, p) => n + p.priceCents * qty(p.id), 0)
   const count = Object.values(s.cart).reduce((n, q) => n + q, 0)
+  const storeCode = ctx.resident.storeCode
 
   return (
     <>
       <StepNav index={4} />
       <div className="mi-body">
-        <h1 className="mi-h1">Community store</h1>
+        <h1 className="mi-h1">Spares</h1>
         <p className="mi-lede">
-          Spares, and a few things for the new place. Shipped to unit {ctx.resident.unitNumber}.
+          Extra fobs and key tags for your household. Same as before — they
+          arrive inactive and switch on at the gate.
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
-          {ctx.store.map(p => {
+          {items.map(p => {
             const q = qty(p.id)
             return (
               <div key={p.id} className="mi-card"
@@ -88,10 +99,50 @@ export default function Store() {
           })}
         </div>
 
-        <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginTop: '1.25rem' }}>
-          Fobs and key tags arrive inactive and switch themselves on the first time you
-          tap at the gate.
-        </p>
+        {/*
+          The community store lives in Shopify. The code is a welcome gift and,
+          because it is single-use and personal, the thing that tells us which
+          resident bought what — which is how store sales still reach the
+          commission ledger without us touching the money.
+        */}
+        {storeCode && (
+          <div className="mi-card mi-card-p" style={{ marginTop: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span className="mi-opt-title" style={{ flex: 1 }}>
+                {ctx.property.name} community store
+              </span>
+              <span className="mi-badge">{storeCode.percentOff}% off</span>
+            </div>
+            <div className="mi-opt-blurb">
+              Doormats, tumblers, plants and the rest — delivered wherever you
+              want them, which may not be the unit before you move in.
+            </div>
+
+            <div style={{
+              marginTop: '0.875rem', padding: '0.75rem',
+              background: 'var(--surface-sunk)', borderRadius: 'var(--r-btn)',
+              border: '1px dashed var(--line-2)', textAlign: 'center',
+            }}>
+              <div style={{
+                fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+                fontSize: '1.0625rem', fontWeight: 700, letterSpacing: '0.08em',
+              }}>
+                {storeCode.code}
+              </div>
+              <div style={{ fontSize: '0.6875rem', color: 'var(--text-3)', marginTop: '0.25rem' }}>
+                Yours alone · one use · expires {formatMoveInDate(storeCode.expiresOn)}
+              </div>
+            </div>
+
+            <a href={storeCode.storeUrl} target="_blank" rel="noopener noreferrer"
+               className="mi-btn mi-btn-2" style={{ marginTop: '0.875rem' }}>
+              Open the store
+            </a>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
+              We&apos;ll send this code to you as well, so you don&apos;t need it now.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="mi-foot">

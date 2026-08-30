@@ -141,6 +141,16 @@ export async function fetchStoreProducts(args: {
 }
 
 /**
+ * SUPERSEDED — kept for reference, not wired.
+ *
+ * This was the "charge on Stripe, then create the order" path. Issuing a
+ * per-resident discount code instead means the money and the order are one
+ * transaction inside Shopify, which removes tax, shipping rates, the shipping
+ * address, and the charged-but-not-shipped failure mode all at once.
+ *
+ * Do not re-wire this without re-reading docs/SHOPIFY.md — the reasons it was
+ * retired are the same reasons it looked attractive.
+ *
  * Create the Shopify order AFTER Stripe has taken the money.
  *
  * This is the half people forget. Shopify is what tells the dropship supplier
@@ -259,4 +269,101 @@ export async function createFulfilmentOrder(args: {
   }
 
   return { shopifyOrderId: order.id, name: order.name }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-resident store codes
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DISCOUNT_MUTATION = `
+  mutation CreateCode($input: DiscountCodeBasicInput!) {
+    discountCodeBasicCreate(basicCodeDiscount: $input) {
+      codeDiscountNode { id }
+      userErrors { field message }
+    }
+  }
+`
+
+/**
+ * A code is a welcome gift and an attribution key at the same time.
+ *
+ * Single-use and personal, so a Shopify orders/create webhook naming the code
+ * names the resident — which is how merch revenue still reaches the commission
+ * ledger without us handling the money.
+ *
+ * Human-readable but not guessable: a property prefix someone can read out over
+ * the phone, plus enough randomness that codes can't be enumerated. Ambiguous
+ * characters are excluded so a resident reading it off a screen gets it right.
+ */
+const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // no I, O, 0, 1
+
+export function generateStoreCode(propertySlug: string): string {
+  const prefix = propertySlug.replace(/[^a-z0-9]/gi, '').slice(0, 6).toUpperCase() || 'STORE'
+  const bytes = crypto.getRandomValues(new Uint8Array(6))
+  const body = Array.from(bytes, b => ALPHABET[b % ALPHABET.length]).join('')
+  return `${prefix}-${body}`
+}
+
+export async function createResidentDiscountCode(args: {
+  code: string
+  percentOff: number
+  expiresAt: Date
+  /** Restricts the discount to a collection, so it can't be used on gift cards. */
+  collectionId?: string
+}): Promise<{ discountId: string }> {
+  if (!shopifyAdminConfigured()) {
+    throw new Error('SHOPIFY_ADMIN_ACCESS_TOKEN is not set; cannot issue a store code.')
+  }
+
+  const res = await fetch(
+    `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/${API_VERSION}/graphql.json`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': process.env.SHOPIFY_ADMIN_ACCESS_TOKEN!,
+      },
+      body: JSON.stringify({
+        query: DISCOUNT_MUTATION,
+        variables: {
+          input: {
+            title: `GateCard move-in — ${args.code}`,
+            code: args.code,
+            startsAt: new Date().toISOString(),
+            endsAt: args.expiresAt.toISOString(),
+            // Single use, full stop. Both limits matter: usageLimit stops the
+            // code being shared, appliesOncePerCustomer stops one account
+            // reusing it.
+            usageLimit: 1,
+            appliesOncePerCustomer: true,
+            customerSelection: { all: true },
+            customerGets: {
+              value: { percentage: args.percentOff / 100 },
+              items: args.collectionId
+                ? { collections: { add: [args.collectionId] } }
+                : { all: true },
+            },
+          },
+        },
+      }),
+    },
+  )
+
+  if (!res.ok) {
+    throw new Error(`Shopify admin ${res.status}: ${(await res.text()).slice(0, 300)}`)
+  }
+
+  const json = (await res.json()) as {
+    data?: { discountCodeBasicCreate?: {
+      codeDiscountNode?: { id: string }
+      userErrors?: { message: string }[]
+    } }
+  }
+  const errs = json.data?.discountCodeBasicCreate?.userErrors
+  if (errs?.length) throw new Error(`Shopify rejected the code: ${errs.map(e => e.message).join('; ')}`)
+
+  const id = json.data?.discountCodeBasicCreate?.codeDiscountNode?.id
+  if (!id) throw new Error('Shopify returned no discount id')
+  return { discountId: id }
 }
