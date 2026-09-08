@@ -57,23 +57,26 @@ relationship would end up in customer tags and metafields and break as propertie
 *Why Shopify still earns a place:* supplier routing, tracking sync, returns and
 multi-state sales tax on physical goods is months of undifferentiated work.
 
-### D2 — The parking + access fee is mandatory, written into the lease
-Not resident opt-in.
+### D2 — The parking + amenity fee is mandatory, one-time, and charged per UNIT
+Not resident opt-in, and **not recurring**. One charge per unit, taken at sign-up. The
+primary resident pays it and may authorise passes for the rest of the household — a
+second or third person on the lease does not multiply it.
 
-### D3 — Screens 01-03 take no payment. How the mandatory fee is collected is OPEN.
+Placeholder amount in the mock data: **$125 per unit.** A property may comp part or all
+of it as a concession (see D8); the resident is charged the remainder at sign-up.
 
-**Status: unresolved. Do not build a collection path for the mandatory fee yet.**
+### D3 — RESOLVED: the fee is collected at sign-up, on the card. No ledger, ever.
 
-An earlier concept had the parking + access fee posting to the resident's rent ledger,
-Gate Guard invoicing the property, the property collecting. **Gate Guard does not have
-access to the rent ledger.** That concept came from a different discussion and was never
-validated. It is recorded here only so it is not re-proposed as settled.
+**Supersedes the earlier "post it to the rent ledger" concept.** Gate Guard does not have
+rent-ledger access, and never claimed one in the UI. Because the fee is one-time and
+collected in the flow, it rides the card rail with everything else and the review screen
+can show a single honest total.
 
-What survives from it, and still governs the UX:
+What still governs the UX:
 
-1. **Screens 01-03 have no checkout.** Identity, credential and parking complete with no
-   payment of any kind. This is a hard UX constraint regardless of how the fee is
-   eventually collected.
+1. **Screens 01-04 take no payment.** Identity, vehicles, keys and services complete with
+   no charge of any kind. Everything is collected once, on screen 05, after the resident
+   has seen an itemised summary. This is a hard UX constraint.
 2. **Non-payment must never affect gate access.** Denying gate or building access for
    non-payment reads as a self-help lockout or utility shutoff in most states - illegal,
    and it is the landlord's remedy, not a vendor's. **There is no code path from a failed
@@ -145,8 +148,8 @@ before you may even apply). That entire sequencing dissolves. Do not revisit it.
 What still holds:
 - **Brivo is a credential sync, not a rent roll.** Name, unit, move-in/move-out dates.
   Very likely no lease financial terms, rent amounts or ledger balances.
-- **Brivo has no financial object**, so it cannot post a charge to a ledger. D3 therefore
-  runs on manual property invoicing. That is correct for v1.
+- **Brivo has no financial object**, so it can never carry the fee. It doesn't need to:
+  D3 collects at sign-up through Stripe.
 - The PMS → Brivo sync is **one-way, PMS as master**. Plates, parking assignments and
   purchases do not flow back. If a property wants them in Yardi, that is a report you
   generate, not a sync.
@@ -157,21 +160,24 @@ What still holds:
 
 ## TWO MONEY RAILS - never cross them
 
-| | Mandatory (parking + access) | Optional (services, security, store) |
+| | Mandatory (parking + amenity) | Optional (services, security, store) |
 |---|---|---|
-| Path | **OPEN - see D3.** No ledger access. Not built. | Resident -> checkout -> Stripe Connect -> dealer tiers + Gate Guard |
-| Instrument | Undecided | Card on file |
-| Failure mode | Undecided | Retry, dun, or drop the item |
+| Cadence | **One-time, per unit, at sign-up** | Monthly, or one-time for physical keys |
+| Path | Resident -> checkout -> Stripe | Resident -> checkout -> Stripe Connect -> dealer tiers + Gate Guard |
+| Instrument | Card, once | Card on file |
+| Failure mode | Sign-up does not complete; **access is unaffected** | Retry, dun, or drop the item |
 | Never | Affects gate access | Affects gate access |
 
-The rails stay separate whatever D3 resolves to. Optional-item failures drop the item;
-they never touch a credential.
+Both now settle through Stripe, but they stay separate in the receipt and in the code:
+the mandatory fee is the property's charge for the unit, the optional items are the
+resident's own. Optional-item failures drop the item; they never touch a credential. A
+failed mandatory charge means the resident finishes later — **it never revokes a pass.**
 
 ---
 
 ## BUILD ORDER - UX FIRST
 
-**Current phase: UX only.** Build and agree the six screens against mock data before
+**Current phase: UX only.** Build and agree the five screens against mock data before
 wiring anything. No Supabase queries, no Stripe calls, no Brivo reads, no Clerk gating
 until the screens are signed off.
 
@@ -180,28 +186,34 @@ backend will satisfy, so wiring is a swap of the data source, not a rewrite.
 
 ---
 
-## THE SIX SCREENS
+## THE FIVE SCREENS
 
 Mobile-first. Move-in happens on a phone in a parking lot, not at a desk. Desktop layouts
 are not designed yet.
 
 | # | Route | Purpose | Checkout? |
 |---|-------|---------|-----------|
-| 01 | `/[siteSlug]/move-in` | Confirm identity, unit, move-in date (pre-filled from Brivo); one editable field (mobile); explicit "nothing to pay here" | No |
-| 02 | `/[siteSlug]/move-in/access` | Credential choice — phone key (free, default), fob, key tag; household members each get their own link; GateCard photo deferred | Card, fobs only |
-| 03 | `/[siteSlug]/move-in/parking` | Space tier with real inventory counts, vehicle and plate; upgrades post to ledger | No |
-| 04 | `/[siteSlug]/move-in/services` | Offer-engine filtered; prominent skip | Card |
-| 05 | `/[siteSlug]/move-in/store` | Dropship merch + credential items; the only real cart | Card |
-| 06 | `/[siteSlug]/move-in/confirmation` | Grouped by **state** — working now / on the way / scheduled — not by product; both rails shown separately; Add to Wallet is the only button | — |
+| 01 | `/[siteSlug]/move-in` | Who you are. Household from Brivo; a phone pass granted per person from ONE session; one editable field (mobile); the unit's one-time fee is stated, not charged | No |
+| 02 | `/[siteSlug]/move-in/vehicles` | One vehicle card per pass-holder. First is required, the rest optional — a half-filled optional vehicle blocks | No |
+| 03 | `/[siteSlug]/move-in/keys` | Optional backup fob / key tag, capped at one per active pass. Framed as backups: the phone pass already works | No |
+| 04 | `/[siteSlug]/move-in/services` | Offer-engine filtered (included / sellable / quote / unavailable); community-store card; prominent skip | No |
+| 05 | `/[siteSlug]/move-in/review` | One itemised summary, callbox-directory opt-in, and the ONLY checkout: the one-time fee less any concession, plus keys, plus monthly services | **Card — all of it** |
+| — | `/[siteSlug]/move-in/confirmation` | Grouped by **state** — working now / on the way / scheduled — not by product; Add to Wallet is the only button; store code revealed | — |
+
+`/demo` is the presenter's landing page — what you put in front of a property manager.
+`/` is the engineering index. Neither is a resident surface.
 
 ### UX principles
 - **The property owns the header.** Gate Guard is subordinate — the resident's
   relationship is with their community. Property name and accent are per-property tokens.
 - **Never block activation on anything optional.** A declined fob, a missing photo, an
-  abandoned session after screen 02 — access must already be live.
+  abandoned session after screen 03 — access must already be live.
 - **"Not your unit?" routes to the leasing office**, so a stale sync is never a dead end.
-- **Screens 01–03 must complete on a bad connection, in under four minutes, with no
+- **Screens 01–04 must complete on a bad connection, in under four minutes, with no
   payment.** Test every proposed feature against this.
+- **A pass is granted to a person, and a vehicle and a key belong to a pass-holder.** One
+  adult provisioning access for another is a real act — it is explicit, one card per
+  person, and written to the audit trail with who granted it.
 - **Support routes to the property, not to Gate Guard.** Taking resident tier-one support
   undercuts the property relationship and buries you in tickets.
 
@@ -227,8 +239,8 @@ per screen, manual-add rate (sync quality), leasing tickets per move-in (renewal
    account.
 3. **Sync interval, and what move-out carries.** Nightly misses same-day leases. Move-out
    drives stopping recurring billing.
-4. **Will property managers accept manual ledger posting from an invoice?** All of D3
-   rests on this.
+4. **Who is the merchant of record for the $125?** Gate Guard collecting on the
+   property's behalf is a Connect question, not a UI one, and it decides the payout path.
 5. **Does a mandatory lease-required access fee read as rent in the jurisdiction?** Some
    states treat mandatory ancillary fees as rent. **Needs counsel — nothing here is legal
    advice.**
@@ -355,7 +367,7 @@ mandates listing, a staffed lobby can default to unlisted.
 | `lib/brivo.ts` | Roster in, credentials out. `auditContactCoverage()` answers assumption #1. |
 | `lib/provisioning.ts` | The queue. Idempotency keys derive from the work, never the run. |
 | `lib/inngest/functions.ts` | Activation, fulfilment, commission release. |
-| `app/api/move-in/activate` | Screens 01-03 complete. Takes no payment, cannot fail on one. |
+| `app/api/move-in/activate` | Screens 01-04 complete. Takes no payment, cannot fail on one. |
 | `app/api/checkout` | Card rail. Prices re-read server-side, never trusted from the client. |
 | `app/api/webhooks/stripe` | Replay-safe. No path from a declined card to a credential. |
 | `app/api/health` | Which integrations are actually wired. |

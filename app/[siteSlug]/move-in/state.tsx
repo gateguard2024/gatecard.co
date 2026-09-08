@@ -4,7 +4,7 @@ import {
   createContext, useContext, useEffect, useRef, useState, type ReactNode,
 } from 'react'
 import type {
-  CredentialKind, VehicleDraft, MoveInContext, DirectoryNameFormat,
+  VehicleDraft, MoveInContext, DirectoryNameFormat,
 } from '@/lib/types'
 
 /**
@@ -15,16 +15,12 @@ import type {
  */
 export interface MoveInState {
   mobile: string
-  credential: CredentialKind
-  extraCredentials: CredentialKind[]
-  parkingTierId: string
   /** Member ids granted a phone pass. */
   passes: string[]
   /** One vehicle per member id. Only pass-holders may have one. */
   vehicles: Record<string, VehicleDraft>
   /** Physical backup keys, capped by the number of active passes. */
   keys: Record<'fob' | 'keytag', number>
-  vehicle: VehicleDraft
   /** Sellable offers the resident ticked. */
   services: string[]
   /**
@@ -33,7 +29,6 @@ export interface MoveInState {
    * are kept apart from `services` and never reach a total.
    */
   requested: string[]
-  cart: Record<string, number>
   /** Listed in the callbox directory. Never affects access, either way. */
   directoryListed: boolean
   directoryFormat: DirectoryNameFormat
@@ -47,16 +42,11 @@ export interface MoveInState {
 
 const EMPTY: MoveInState = {
   mobile: '',
-  credential: 'phone',
-  extraCredentials: [],
-  parkingTierId: '',
   passes: [],
   vehicles: {},
   keys: { fob: 0, keytag: 0 },
-  vehicle: { plate: '', state: '', make: '', model: '', color: '' },
   services: [],
   requested: [],
-  cart: {},
   directoryListed: true,
   directoryFormat: 'last_initial',
   furthest: 0,
@@ -76,9 +66,6 @@ export function MoveInProvider(
 
   const [s, setS] = useState<MoveInState>(() => ({
     ...EMPTY,
-    // Default to whatever the property marks as included.
-    parkingTierId: ctx.parkingTiers.find(t => t.included)?.id ?? '',
-    credential: ctx.credentials.find(c => c.isDefault)?.kind ?? 'phone',
     // A property that mandates listing overrides the default; otherwise the
     // property's own default decides where the toggle starts.
     directoryListed: ctx.property.directory.mode === 'required'
