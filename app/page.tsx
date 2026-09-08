@@ -37,6 +37,17 @@ export default function Home() {
         <h1 className="mi-h1" style={{ fontSize: '2rem', marginTop: '1rem' }}>
           GateCard move-in
         </h1>
+
+        {/* The presentable surface. This page is the engineering index; that
+            one is what you put in front of a property manager. */}
+        <div className="mi-card mi-card-p" style={{ margin: '0 0 1.25rem' }}>
+          <div style={{ fontWeight: 600, fontSize: '0.9375rem' }}>Presenting to a property?</div>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--text-2)', margin: '0.375rem 0 0.875rem' }}>
+            The demo site explains the five screens in a manager&apos;s terms and
+            starts the walkthroughs.
+          </p>
+          <Link href="/demo" className="mi-btn">Open the demo site</Link>
+        </div>
         <p className="mi-lede" style={{ fontSize: '1rem', maxWidth: '46ch' }}>
           Three properties, one deployment. None of the six screens contains a
           property name — where they differ, it&apos;s because the data differs.

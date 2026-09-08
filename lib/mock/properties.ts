@@ -35,7 +35,7 @@ const eastPonds: MoveInContext = {
     supportEmail: 'leasing@eastponds.example',
     parkingFee: {
       label: 'Parking & amenity fee',
-      monthlyCents: 2500,
+      amountCents: 12500,
       covers: 'Gate access, the resident lot and community amenities',
     },
     directory: {
@@ -49,16 +49,21 @@ const eastPonds: MoveInContext = {
     firstName: 'Maya', lastName: 'Ellison', unitNumber: '214',
     moveInDate: '2026-09-05',
     email: 'm.ellison@example.com', mobile: null,
-    householdMembers: [{ firstName: 'Andre', lastName: 'Ellison', invited: false }],
+    household: [
+      { id: 'maya', firstName: 'Maya', lastName: 'Ellison', role: 'me',
+        avatarUrl: null, alreadyActive: false },
+      { id: 'andre', firstName: 'Andre', lastName: 'Ellison', role: 'leaseholder',
+        avatarUrl: null, alreadyActive: false },
+    ],
     leaseTermMonths: 12,
     leaseEndDate: '2027-09-04',
-    // Partial, and it runs out before the lease does — the case most likely to
-    // produce a confused call in month seven.
+    // Partial — the property comps $50 of the $125, the resident pays the
+    // rest at sign-up. The case most likely to produce a confused call.
     concession: {
-      coversCents: 1000,
+      coversCents: 5000,
       label: 'Covered by East Ponds',
-      months: 6,
-      endsOn: '2027-03-04',
+      months: null,
+      endsOn: null,
     },
    storeCode: {
       code: 'EASTPO-K7M4QX',
@@ -128,7 +133,7 @@ const campCreek: MoveInContext = {
     supportEmail: 'leasing@rhythmcampcreek.example',
     parkingFee: {
       label: 'Parking & amenity fee',
-      monthlyCents: 2000,
+      amountCents: 12500,
       covers: 'Gate access, the resident lot and community amenities',
     },
     // This property mandates listing — the gate is unstaffed and deliveries
@@ -144,7 +149,11 @@ const campCreek: MoveInContext = {
     firstName: 'Devin', lastName: 'Okafor', unitNumber: '1108',
     moveInDate: '2026-09-12',
     email: 'd.okafor@example.com', mobile: null,
-    householdMembers: [],
+    // Lives alone — the pass step should collapse to one card, not look empty.
+    household: [
+      { id: 'devin', firstName: 'Devin', lastName: 'Okafor', role: 'me',
+        avatarUrl: null, alreadyActive: false },
+    ],
     // A nine-month lease. Short terms are common and the fee has to behave.
     leaseTermMonths: 9,
     leaseEndDate: '2027-06-11',
@@ -202,7 +211,7 @@ const lyvBuckhead: MoveInContext = {
     supportEmail: 'concierge@lyvbuckhead.example',
     parkingFee: {
       label: 'Parking & amenity fee',
-      monthlyCents: 7500,
+      amountCents: 12500,
       covers: 'Garage access, the lobby and building amenities',
     },
     // A staffed lobby means nobody depends on the directory to reach a
@@ -218,16 +227,22 @@ const lyvBuckhead: MoveInContext = {
     firstName: 'Priya', lastName: 'Raman', unitNumber: '2207',
     moveInDate: '2026-09-01',
     email: 'p.raman@example.com', mobile: null,
-    householdMembers: [
-      { firstName: 'Nikhil', lastName: 'Raman', invited: true },
-      { firstName: 'Asha', lastName: 'Raman', invited: false },
+    household: [
+      { id: 'priya', firstName: 'Priya', lastName: 'Raman', role: 'me',
+        avatarUrl: null, alreadyActive: false },
+      // Already on the roster: their pass is a fact, not a choice.
+      { id: 'nikhil', firstName: 'Nikhil', lastName: 'Raman', role: 'leaseholder',
+        avatarUrl: null, alreadyActive: true },
+      { id: 'asha', firstName: 'Asha', lastName: 'Raman', role: 'occupant',
+        avatarUrl: null, alreadyActive: false },
     ],
     leaseTermMonths: 12,
     leaseEndDate: '2027-08-31',
+    // Fully comped — a $125 fee the resident never sees a charge for.
     concession: {
-      coversCents: 7500,
+      coversCents: 12500,
       label: 'Covered by LYV Buckhead',
-      months: null,        // the whole lease
+      months: null,
       endsOn: null,
     },
    storeCode: {
@@ -288,9 +303,9 @@ export const DEMO_NOTES: Record<string, { headline: string; points: string[] }> 
     points: [
       'Internet is included, so its card is an activation helper with no price',
       'DirecTV is unavailable here and never renders at all',
-      'A partial concession that expires before the lease does',
+      'A partial concession — the property comps $50 of the $125 fee',
       'Insurance is flagged as required by the lease',
-      'A second person on the lease gets their own link, not a shared session',
+      'Two on the lease — the second pass is a toggle, not a separate link',
     ],
   },
   'camp-creek': {
@@ -301,14 +316,14 @@ export const DEMO_NOTES: Record<string, { headline: string; points: string[] }> 
       'The store carries credentials only, no merch programme',
       'One credential option instead of three',
       'Directory listing is mandatory — the gate is unstaffed',
-      'A nine-month lease, so the fee is shown for the real term',
+      'A nine-month lease, and a single-person household',
     ],
   },
   'lyv-buckhead': {
-    headline: 'Nothing included — every parking tier is paid',
+    headline: 'A fully comped fee, and a three-person household',
     points: [
-      'The fee is fully comped by the property for the whole lease',
-      'Two household members, one already invited',
+      'The $125 fee is fully comped — the resident pays nothing at sign-up',
+      'Three on the lease, one already active on the roster',
       'A different accent colour, applied from the property record alone',
     ],
   },

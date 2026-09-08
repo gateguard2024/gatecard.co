@@ -45,8 +45,10 @@ export interface ResidentRow {
 }
 
 export interface HouseholdRow {
+  id: string
   first_name: string
   last_name: string
+  active: boolean
 }
 
 export interface CredentialOptionRow {

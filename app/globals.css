@@ -395,3 +395,200 @@
   .mi-back svg { width: 14px; height: 14px; }
   .mi-back:hover { text-decoration: underline; text-underline-offset: 3px; }
 }
+
+@layer components {
+  /* ── Person cards — who gets a pass ──────────────────────────────────────
+     Side by side, so a household reads as a household rather than a list. */
+  .mi-people { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; }
+  .mi-people[data-one="true"] { grid-template-columns: 1fr; }
+
+  .mi-person {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    padding: 0.9375rem 0.75rem;
+    text-align: center;
+    box-shadow: var(--shadow-card);
+    transition: border-color .14s, background .14s;
+  }
+  .mi-person[data-on="true"] {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  }
+  .mi-avatar {
+    width: 44px; height: 44px; border-radius: 50%;
+    margin: 0 auto 0.5rem;
+    display: grid; place-items: center;
+    background: color-mix(in srgb, var(--accent) 20%, var(--surface-2));
+    border: 1px solid var(--line-2);
+    color: var(--accent-hi);
+    font-weight: 700; font-size: 0.9375rem; letter-spacing: -0.01em;
+  }
+  .mi-person-name { font-weight: 600; font-size: 0.9375rem; }
+  .mi-person-role { font-size: 0.75rem; color: var(--text-3); margin-top: 1px; }
+  .mi-person-action { margin-top: 0.75rem; }
+  .mi-person-label { font-size: 0.8125rem; font-weight: 550; margin-top: 0.4375rem; }
+  .mi-person-sub { font-size: 0.6875rem; color: var(--text-3); }
+
+  /* ── Toggle ─────────────────────────────────────────────────────────────
+     44px hit area around a 46×26 track — thumbs, not cursors. */
+  .mi-switch {
+    appearance: none; -webkit-appearance: none;
+    width: 46px; height: 26px; border-radius: 13px;
+    background: var(--surface-sunk);
+    border: 1px solid var(--line-2);
+    position: relative; cursor: pointer; flex: none;
+    transition: background .16s, border-color .16s;
+  }
+  .mi-switch::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    transition: transform .16s;
+  }
+  .mi-switch:checked { background: var(--accent); border-color: var(--accent); }
+  .mi-switch:checked::after { transform: translateX(20px); }
+  .mi-switch:disabled { opacity: 0.5; cursor: default; }
+
+  .mi-check-round {
+    width: 34px; height: 34px; border-radius: 50%; margin: 0 auto;
+    display: grid; place-items: center;
+    background: var(--accent-hi); color: var(--accent-ink);
+  }
+  .mi-check-round svg { width: 17px; height: 17px; }
+
+  /* ── Quantity stepper ───────────────────────────────────────────────────── */
+  .mi-step-row { display: flex; align-items: center; gap: 0.75rem; }
+  .mi-step-btn {
+    width: 38px; height: 38px; border-radius: 10px;
+    display: grid; place-items: center;
+    background: var(--surface-2); border: 1px solid var(--line-2);
+    color: var(--text); font-size: 1.125rem; font-weight: 600;
+    cursor: pointer; min-height: 38px;
+  }
+  .mi-step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .mi-step-btn:not(:disabled):hover { background: var(--surface); }
+  .mi-step-val { min-width: 20px; text-align: center; font-weight: 700; font-size: 1rem; }
+
+  /* ── Illustration frame ─────────────────────────────────────────────────── */
+  .mi-art { display: grid; place-items: center; padding: 0.5rem 0 1rem; }
+  .mi-art-inline { flex: none; width: 62px; display: grid; place-items: center; }
+
+  /* ── Product / service row with art ─────────────────────────────────────── */
+  .mi-prod {
+    display: flex; gap: 0.875rem; align-items: flex-start;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--r-card); padding: 1rem;
+    box-shadow: var(--shadow-card);
+  }
+  .mi-prod + .mi-prod { margin-top: 0.625rem; }
+  .mi-prod[data-on="true"] {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  }
+
+  /* ── Counters line ──────────────────────────────────────────────────────── */
+  .mi-counter {
+    display: flex; flex-direction: column; gap: 0.1875rem;
+    font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-3); font-weight: 650;
+    padding: 0.375rem 0;
+  }
+  .mi-counter b { color: var(--text); font-weight: 700; }
+
+  /* ── Review / payment ───────────────────────────────────────────────────── */
+  .mi-pay-total {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 0.875rem 1.0625rem;
+    background: var(--surface-sunk);
+    border-bottom: 1px solid var(--line);
+    font-weight: 700;
+  }
+  .mi-card-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem; margin-top: 0.625rem;
+  }
+  .mi-brands { display: flex; gap: 0.3125rem; align-items: center; }
+  .mi-brand {
+    height: 20px; padding: 0 0.375rem; border-radius: 4px;
+    display: grid; place-items: center;
+    background: var(--surface-2); border: 1px solid var(--line);
+    font-size: 0.5625rem; font-weight: 800; letter-spacing: 0.04em;
+    color: var(--text-2);
+  }
+
+  /* ── Stripe footer ──────────────────────────────────────────────────────── */
+  .mi-stripe {
+    text-align: center; padding: 1.25rem 1.125rem 0.5rem;
+    font-size: 0.6875rem; color: var(--text-3); font-weight: 500;
+  }
+  .mi-stripe b { color: var(--text-2); font-weight: 700; letter-spacing: -0.02em; }
+
+  /* ── Welcome code ───────────────────────────────────────────────────────── */
+  .mi-code {
+    margin-top: 0.625rem;
+    padding: 0.5rem 0.75rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+    background: var(--surface-sunk);
+    border: 1px dashed var(--line-2);
+    border-radius: var(--r-btn);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9375rem; font-weight: 700; letter-spacing: 0.08em;
+    color: var(--accent-hi);
+  }
+  .mi-code span {
+    font-family: var(--font-sans); font-size: 0.6875rem; letter-spacing: 0.04em;
+    font-weight: 700; color: var(--text-3); text-transform: uppercase;
+  }
+
+  /* ── Chip — a short set of mutually exclusive choices ───────────────────── */
+  .mi-chip {
+    min-height: 34px; padding: 0.25rem 0.6875rem;
+    border-radius: 999px;
+    background: var(--surface-2); border: 1px solid var(--line-2);
+    color: var(--text-2); font-size: 0.8125rem; font-weight: 550;
+    cursor: pointer;
+  }
+  .mi-chip-on {
+    background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+    border-color: var(--accent); color: var(--text);
+  }
+
+  /* ── Product row typography ─────────────────────────────────────────────── */
+  .mi-prod-title { font-weight: 600; font-size: 1.0625rem; letter-spacing: -0.015em; }
+  .mi-prod-price {
+    margin-top: 0.375rem;
+    font-size: 0.9375rem; font-weight: 600; color: var(--text-2);
+  }
+
+  /* ── Select pill — the second affordance beside a toggle ────────────────── */
+  .mi-pill {
+    min-height: 34px; padding: 0.25rem 0.9375rem;
+    border-radius: 0.5rem;
+    background: var(--surface-2); border: 1px solid var(--line-2);
+    color: var(--text); font-size: 0.875rem; font-weight: 600;
+    cursor: pointer; flex: none;
+  }
+  .mi-pill-on {
+    background: var(--accent); border-color: var(--accent); color: var(--accent-ink);
+  }
+
+  /* ── Stated charge — a fee, not an offer ────────────────────────────────── */
+  .mi-note {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    padding: 0.875rem 1rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow-card);
+  }
+  .mi-note-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 0.75rem; font-weight: 600; font-size: 0.9375rem;
+  }
+  .mi-note-row b { font-size: 1.125rem; letter-spacing: -0.02em; }
+  .mi-note p {
+    margin: 0.375rem 0 0;
+    font-size: 0.8125rem; color: var(--text-3); line-height: 1.45;
+  }
+}

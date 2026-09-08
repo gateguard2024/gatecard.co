@@ -57,8 +57,16 @@ export interface ResidentIdentity {
   moveInDate: string // ISO
   email: string | null
   mobile: string | null
-  /** Other people on the lease. Each gets their own link — never a shared session. */
-  householdMembers: { firstName: string; lastName: string; invited: boolean }[]
+  /**
+   * Everyone on the lease, including the resident opening this link.
+   *
+   * A phone pass is granted per person, from one session. That is a deliberate
+   * change from "everyone gets their own link": it is faster, and the household
+   * is a single lease. It also means one adult provisions building access for
+   * another, so the pass list is written to the audit trail with who granted
+   * it — see AGENTS.md.
+   */
+  household: HouseholdMember[]
 
   /**
    * Lease term in months. Short terms are common — 3, 6 and 9-month leases,
@@ -73,6 +81,19 @@ export interface ResidentIdentity {
 
   /** The community-store welcome code. Null where the property has no store. */
   storeCode: StoreCode | null
+}
+
+export type HouseholdRole = 'me' | 'leaseholder' | 'occupant'
+
+export interface HouseholdMember {
+  id: string
+  firstName: string
+  lastName: string
+  role: HouseholdRole
+  /** Optional headshot. Falls back to initials. */
+  avatarUrl: string | null
+  /** True where the roster already shows them with access. */
+  alreadyActive: boolean
 }
 
 export interface StoreCode {
@@ -104,16 +125,22 @@ export interface CredentialOption {
 /**
  * The community parking and amenity fee.
  *
- * This is NOT a choice. It is the mandatory charge to park inside the gates,
- * written into the lease (D2) — so the screen states it rather than offering
- * it, and takes no card for it (D3, where the collection path is still open).
+ * NOT a choice, and NOT recurring: one charge per UNIT, taken at sign-up. The
+ * primary resident pays it and may authorise passes for the rest of the
+ * household — a second or third person on the lease does not double it.
+ *
+ * Because it is collected at sign-up it rides the card rail like everything
+ * else on the review screen, which is what makes a single payment honest here.
+ * (This supersedes the earlier monthly-on-the-lease model; we have no rent
+ * ledger to post to, so nothing claims one.)
  *
  * Distinct from ParkingTier below, which is an optional space-type upgrade a
  * property may or may not sell.
  */
 export interface ParkingFee {
   label: string
-  monthlyCents: number
+  /** One-time, per unit, due at sign-up. */
+  amountCents: number
   /** What it covers, in the property's words. */
   covers: string
 }
@@ -130,7 +157,7 @@ export interface ParkingFee {
  * one nobody can query when it lapses.
  */
 export interface Concession {
-  /** Cents per month covered by the property. */
+  /** Cents of the one-time fee covered by the property. */
   coversCents: number
   /** Who granted it, in the resident's words: "Covered by East Ponds". */
   label: string
@@ -153,6 +180,7 @@ export interface ParkingTier {
   included: boolean
 }
 
+/** A vehicle belongs to a person, and only a person with an active pass. */
 export interface VehicleDraft {
   plate: string
   state: string

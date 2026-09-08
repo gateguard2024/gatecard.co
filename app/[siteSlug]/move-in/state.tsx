@@ -18,6 +18,12 @@ export interface MoveInState {
   credential: CredentialKind
   extraCredentials: CredentialKind[]
   parkingTierId: string
+  /** Member ids granted a phone pass. */
+  passes: string[]
+  /** One vehicle per member id. Only pass-holders may have one. */
+  vehicles: Record<string, VehicleDraft>
+  /** Physical backup keys, capped by the number of active passes. */
+  keys: Record<'fob' | 'keytag', number>
   vehicle: VehicleDraft
   /** Sellable offers the resident ticked. */
   services: string[]
@@ -44,6 +50,9 @@ const EMPTY: MoveInState = {
   credential: 'phone',
   extraCredentials: [],
   parkingTierId: '',
+  passes: [],
+  vehicles: {},
+  keys: { fob: 0, keytag: 0 },
   vehicle: { plate: '', state: '', make: '', model: '', color: '' },
   services: [],
   requested: [],
@@ -76,6 +85,11 @@ export function MoveInProvider(
       ? true
       : ctx.property.directory.defaultListed,
     directoryFormat: ctx.property.directory.formats[0] ?? 'last_initial',
+    // The person who opened the link always gets a pass — they are why the
+    // link exists. Anyone already active on the roster keeps theirs.
+    passes: ctx.resident.household
+      .filter(m => m.role === 'me' || m.alreadyActive)
+      .map(m => m.id),
   }))
   const set = <K extends keyof MoveInState>(k: K, v: MoveInState[K]) =>
     setS(prev => ({ ...prev, [k]: v }))

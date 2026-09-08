@@ -29,6 +29,12 @@ export function parseCalendarDate(iso: string): Date {
   return new Date(y, (m ?? 1) - 1, d ?? 1)
 }
 
+/** "March 2027" — for dates far enough out that the weekday is noise. */
+export function formatMonthYear(iso: string): string {
+  const dt = parseCalendarDate(iso)
+  return `${MONTHS[dt.getMonth()]} ${dt.getFullYear()}`
+}
+
 /** "Saturday, September 5" — identical on the server and in the browser. */
 export function formatMoveInDate(iso: string): string {
   const dt = parseCalendarDate(iso)

@@ -1,28 +1,35 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-
-import { StepFooter, NotYourUnit } from '@/components/chrome'
-import { StepNav } from './nav'
+import { StepFooter, NotYourUnit, Check, money } from '@/components/chrome'
+import { StepNav, StripeMark } from './nav'
 import { useMoveIn } from './state'
-import { formatMoveInDate } from '@/lib/dates'
+import { computeFee } from '@/lib/fees'
 
 /**
- * 01 · Arrival
+ * 01 · Who you are
  *
- * Confirm identity, unit and move-in date — all pre-filled from the roster.
- * Exactly one editable field: the mobile number, because that is the one thing
- * the sync most often lacks and the one thing everything downstream needs.
+ * Two jobs: confirm who on the lease gets a phone pass, and capture the one
+ * field the roster reliably lacks — a mobile number.
  *
- * No payment here, and the screen says so out loud. A resident who believes
- * they are about to be charged abandons.
+ * The fee is shown as INCLUDED WITH THE UNIT rather than as a price. It is
+ * written into the lease, so leading with a dollar figure on the welcome screen
+ * frames a lease term as a charge the resident is about to incur.
+ *
+ * Granting a pass to someone else is a real act: one adult is provisioning
+ * building access for another. It is deliberately explicit, one card per person,
+ * rather than a checkbox in a list.
  */
-export default function Arrival() {
+export default function WhoYouAre() {
   const { ctx, s, set } = useMoveIn()
   const siteSlug = ctx.property.slug
   const { property, resident } = ctx
 
-  const moveIn = formatMoveInDate(resident.moveInDate)
+  const fee = computeFee({
+    fee: property.parkingFee,
+    concession: resident.concession,
+    termMonths: resident.leaseTermMonths,
+  })
 
   /** Format as they type. A phone number is the one thing they hand-key here. */
   const format = (raw: string) => {
@@ -34,32 +41,20 @@ export default function Arrival() {
 
   const inputRef = useRef<HTMLInputElement>(null)
 
-  /**
-   * Keep React's state and the actual input in step, whatever put the value
-   * there.
-   *
-   * Chrome autofill writes straight to the DOM, sometimes after mount and
-   * sometimes without firing React's synthetic onChange. When that happens the
-   * field looks filled, state is still empty, and the button stays disabled
-   * with nothing on screen explaining why — the form reads as broken, which is
-   * exactly the moment a resident gives up and phones the leasing office.
-   *
-   * Native listeners catch what React misses; the timers catch autofill that
-   * lands after mount and fires nothing at all.
-   */
+  // Chrome autofill writes straight to the DOM, sometimes after mount and
+  // sometimes without firing React's onChange. Without this the field looks
+  // filled while state is empty and the button stays dead for no visible
+  // reason — which reads as a broken form.
   useEffect(() => {
     const el = inputRef.current
     if (!el) return
-
     const sync = () => {
       const formatted = format(el.value)
       if (formatted !== s.mobile) set('mobile', formatted)
     }
-
     el.addEventListener('input', sync)
     el.addEventListener('change', sync)
     const timers = [0, 150, 400, 900, 1800].map(ms => setTimeout(sync, ms))
-
     return () => {
       el.removeEventListener('input', sync)
       el.removeEventListener('change', sync)
@@ -71,84 +66,127 @@ export default function Arrival() {
   const digits = s.mobile.replace(/\D/g, '').slice(0, 10)
   const ready = digits.length === 10
 
+  const me = resident.household.find(m => m.role === 'me')
+  const others = resident.household.filter(m => m.role !== 'me')
+
+  const toggle = (id: string) =>
+    set('passes', s.passes.includes(id)
+      ? s.passes.filter(x => x !== id)
+      : [...s.passes, id])
+
+  const initials = (f: string, l: string) =>
+    `${f.charAt(0)}${l.charAt(0)}`.toUpperCase()
+
+  const ROLE: Record<string, string> = {
+    me: '(Me)', leaseholder: '(Leaseholder)', occupant: '(Occupant)',
+  }
+
   return (
     <>
       <StepNav index={0} />
       <div className="mi-body">
         <h1 className="mi-h1">Welcome home, {resident.firstName}.</h1>
-        <p className="mi-lede">
-          Let&apos;s get your access working before you carry the first box in.
-          Three short steps, about two minutes.
-        </p>
+        <p className="mi-lede">Let&apos;s get your gate ready. 2 minutes.</p>
 
-        <div className="mi-free">
-          <span aria-hidden>✓</span>
-          Nothing to pay on this screen or the next two.
+        {fee && (fee.fullyCovered ? (
+          <div className="mi-free" style={{ display: 'block' }}>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <span aria-hidden>✓</span>
+              <span>Included with Unit {resident.unitNumber}:</span>
+            </div>
+            <div style={{ paddingLeft: '1.5rem', marginTop: '0.25rem', fontWeight: 600 }}>
+              {property.parkingFee!.label.replace(/\s*fee$/i, ' access')}
+            </div>
+          </div>
+        ) : (
+          /* One charge for the unit, not per person — said here, before anyone
+             hesitates over adding a pass for their partner. */
+          <div className="mi-note">
+            <div className="mi-note-row">
+              <span>{property.parkingFee!.label} · Unit {resident.unitNumber}</span>
+              <b>{money(fee.netCents)}</b>
+            </div>
+            <p>
+              {property.parkingFee!.covers}. Charged once at sign-up for the whole
+              unit{fee.partiallyCovered
+                ? `, after ${money(fee.coveredCents)} covered by ${property.name}`
+                : ''} — not per person.
+            </p>
+          </div>
+        ))}
+
+        <div className="mi-label" style={{ margin: '1.5rem 0 0.625rem' }}>
+          Who gets a phone pass
         </div>
 
-        <div className="mi-card mi-card-p">
-          <div className="mi-fact">
-            <span className="mi-fact-k">Name</span>
-            <span className="mi-fact-v">{resident.firstName} {resident.lastName}</span>
-          </div>
-          <div className="mi-fact">
-            <span className="mi-fact-k">Unit</span>
-            <span className="mi-fact-v">{resident.unitNumber}</span>
-          </div>
-          <div className="mi-fact">
-            <span className="mi-fact-k">Move-in</span>
-            <span className="mi-fact-v">{moveIn}</span>
-          </div>
-          {resident.email && (
-            <div className="mi-fact">
-              <span className="mi-fact-k">Email</span>
-              <span className="mi-fact-v">{resident.email}</span>
+        <div className="mi-people" data-one={others.length === 0 ? 'true' : 'false'}>
+          {me && (
+            <div className="mi-person" data-on="true">
+              <div className="mi-avatar">{initials(me.firstName, me.lastName)}</div>
+              <div className="mi-person-name">{me.firstName}</div>
+              <div className="mi-person-role">{ROLE.me}</div>
+              <div className="mi-person-action">
+                <div className="mi-check-round"><Check /></div>
+                <div className="mi-person-label">Activate phone key</div>
+                <div className="mi-person-sub">(Included)</div>
+              </div>
             </div>
           )}
+
+          {others.map(m => {
+            const on = s.passes.includes(m.id)
+            return (
+              <div key={m.id} className="mi-person" data-on={on ? 'true' : 'false'}>
+                <div className="mi-avatar">{initials(m.firstName, m.lastName)}</div>
+                <div className="mi-person-name">{m.firstName}</div>
+                <div className="mi-person-role">{ROLE[m.role]}</div>
+                <div className="mi-person-action">
+                  <div style={{ display: 'grid', placeItems: 'center' }}>
+                    <input
+                      type="checkbox"
+                      className="mi-switch"
+                      checked={on}
+                      disabled={m.alreadyActive}
+                      onChange={() => toggle(m.id)}
+                      aria-label={`${on ? 'Remove' : 'Add'} phone key for ${m.firstName}`}
+                    />
+                  </div>
+                  <div className="mi-person-label">
+                    {m.alreadyActive ? 'Already active' : 'Add phone key'}
+                  </div>
+                  <div className="mi-person-sub">
+                    {m.alreadyActive ? '(On the roster)' : '(No extra charge)'}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
         </div>
 
-        <div style={{ marginTop: '1.25rem' }}>
+        <div style={{ marginTop: '1.5rem' }}>
           <label className="mi-label" htmlFor="mobile">Your mobile number</label>
           <input
             id="mobile"
             ref={inputRef}
-            onBlur={e => { if (e.target.value !== s.mobile) set('mobile', format(e.target.value)) }}
             className="mi-input"
             type="tel"
             inputMode="numeric"
             autoComplete="tel"
             placeholder="(404) 555-0142"
             value={s.mobile}
+            onBlur={e => { if (e.target.value !== s.mobile) set('mobile', format(e.target.value)) }}
             onChange={e => set('mobile', format(e.target.value))}
           />
           <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
             {digits.length > 0 && !ready
               ? `${10 - digits.length} more digit${10 - digits.length === 1 ? '' : 's'} to go.`
-              : `This is what unlocks the gate from your phone, and where your
-                 confirmation goes. We don't use it for marketing.`}
+              : `Add ${resident.firstName}’s mobile number. We use this to open the
+                 gate and send confirmation. No marketing.`}
           </p>
         </div>
 
-        {resident.householdMembers.length > 0 && (
-          <div className="mi-card mi-card-p" style={{ marginTop: '1.25rem' }}>
-            <div className="mi-label" style={{ marginBottom: '0.5rem' }}>Also on your lease</div>
-            {resident.householdMembers.map(m => (
-              <div key={m.firstName} style={{ fontSize: '0.875rem' }}>
-                {m.firstName} {m.lastName}
-              </div>
-            ))}
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
-              They&apos;ll get their own link — access is never shared between people.
-            </p>
-          </div>
-        )}
-
-        {/*
-          A required field with no alternative is a dead end. Not everyone has
-          a mobile, and some people won't hand one over to a vendor — without a
-          way past this, they cannot get a key at all and the leasing office
-          gets the call instead.
-        */}
+        {/* A required field with no alternative is a dead end. Not everyone has
+            a mobile, and some won't give one to a vendor. */}
         <details style={{ marginTop: '1rem' }}>
           <summary style={{
             cursor: 'pointer', fontSize: '0.8125rem', color: 'var(--accent-hi)',
@@ -158,8 +196,8 @@ export default function Arrival() {
           </summary>
           <div className="mi-hatch" style={{ marginTop: '0.625rem' }}>
             Your phone key needs a mobile number, but you don&apos;t have to use one.
-            The leasing office can issue you a fob or key tag at handover instead —
-            it works at the gate exactly the same way.
+            The leasing office can issue a fob or key tag at handover instead — it
+            works at the gate exactly the same way.
             <div style={{ marginTop: '0.625rem' }}>
               <a href={`tel:${property.leasingPhone}`}>Call {property.name}</a>
             </div>
@@ -170,10 +208,11 @@ export default function Arrival() {
       </div>
 
       <StepFooter
-        href={`/${siteSlug}/move-in/access`}
-        label={ready ? 'Continue' : 'Add your mobile number'}
+        href={`/${siteSlug}/move-in/vehicles`}
+        label={ready ? 'Next: Add vehicles' : 'Add your mobile number'}
         disabled={!ready}
       />
+      <StripeMark />
     </>
   )
 }

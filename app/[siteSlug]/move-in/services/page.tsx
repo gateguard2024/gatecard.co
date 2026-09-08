@@ -1,143 +1,177 @@
 'use client'
 
-import Link from 'next/link'
-import { Check, money } from '@/components/chrome'
-import { StepNav } from '../nav'
+import { StepFooter, money } from '@/components/chrome'
+import { StepNav, StripeMark } from '../nav'
 import { useMoveIn } from '../state'
+import {
+  TvArt, SecurityArt, WalletArt, WifiArt, GiftArt,
+} from '@/components/art'
+import type { ServiceOffer } from '@/lib/types'
 
 /**
- * 04 · Services
+ * 04 · Home services
  *
- * Activation is already done. The screen opens by saying so, because the whole
- * point of the ordering is that nothing optional can hold up a working key.
+ * Access is already done. The screen says so first, because the whole point of
+ * putting the ordering last is that nothing optional can hold up a working key.
  *
- * Every card here is offer-engine output (D7). Four modes:
- *   included    — bulk ROE at this property. The card becomes an activation
- *                 helper, not a purchase. Never a price, never a cart.
+ * Every card is offer-engine output (D7), in one of four modes:
+ *   included    — bulk ROE at this property. The card is an activation helper,
+ *                 not a purchase. No price, no total.
  *   sellable    — orderable; commission tracked
- *   quote       — configurator, deposit + monitoring (FORGE, reused)
+ *   quote       — configurator, deposit + monitoring
  *   unavailable — not rendered at all
  *
- * Nothing about East Ponds is coded here. Change the table, change the screen.
+ * Nothing about any one property is coded here. Change the table, change the
+ * screen.
  */
+
+const ART: Record<ServiceOffer['category'], (p: { size: number }) => React.JSX.Element> = {
+  internet: WifiArt,
+  tv: TvArt,
+  security: SecurityArt,
+  insurance: WalletArt,
+  other: GiftArt,
+}
+
 export default function Services() {
   const { ctx, s, set } = useMoveIn()
   const siteSlug = ctx.property.slug
+  const { storeCode } = ctx.resident
 
   const offers = ctx.services.filter(o => o.mode !== 'unavailable')
 
-  const request = (id: string) =>
-    set('requested', s.requested.includes(id)
-      ? s.requested.filter(x => x !== id)
-      : [...s.requested, id])
+  // Sellable offers are switched on; included and quote offers are *requested*.
+  // Neither of the latter is a purchase, so they stay out of `services` and
+  // never reach a total.
+  const toggle = (o: ServiceOffer) => {
+    const key = o.mode === 'sellable' ? 'services' : 'requested'
+    const list = s[key]
+    set(key, list.includes(o.id) ? list.filter(x => x !== o.id) : [...list, o.id])
+  }
 
-  const toggle = (id: string) =>
-    set('services', s.services.includes(id)
-      ? s.services.filter(x => x !== id)
-      : [...s.services, id])
+  const isOn = (o: ServiceOffer) =>
+    (o.mode === 'sellable' ? s.services : s.requested).includes(o.id)
+
+  const price = (o: ServiceOffer) =>
+    o.mode === 'included' ? 'Included with your lease'
+    : o.mode === 'quote' ? 'Free consultation'
+    : o.monthlyCents !== null ? `From ${money(o.monthlyCents)}/mo`
+    : '—'
+
+  const cta = (o: ServiceOffer, on: boolean) =>
+    on ? 'Selected'
+    : o.mode === 'quote' ? 'Request'
+    : o.mode === 'included' ? 'Activate'
+    : 'Select'
+
+  const monthly = offers
+    .filter(o => o.mode === 'sellable' && s.services.includes(o.id))
+    .reduce((n, o) => n + (o.monthlyCents ?? 0), 0)
 
   return (
     <>
       <StepNav index={3} />
       <div className="mi-body">
-        <div className="mi-free" style={{ marginTop: '0.5rem' }}>
+        <h1 className="mi-h1">Let&apos;s upgrade your home services</h1>
+
+        <div className="mi-free">
           <span aria-hidden>✓</span>
-          Your access is live. Unit {ctx.resident.unitNumber} — you can stop here.
+          These items are optional. Pick only what you want.
         </div>
 
-        <h1 className="mi-h1">A few things people set up now</h1>
-        <p className="mi-lede">
-          All optional, and all easier today than in three weeks. Skip anything.
-        </p>
-
         {offers.map(o => {
-          // Sellable offers are ticked; included and quote offers are requested
-          // by button. One flag either way, so the card reads the same.
-          const on = o.mode === 'sellable'
-            ? s.services.includes(o.id)
-            : s.requested.includes(o.id)
-
-          // Already covered by the lease — an activation helper, not a purchase.
-          if (o.mode === 'included') {
-            return (
-              <div key={o.id} className="mi-card mi-card-p" style={{ marginBottom: '0.625rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'flex-start' }}>
-                  <div>
-                    <div className="mi-opt-title">{o.name}</div>
-                    <div className="mi-opt-blurb">{o.blurb}</div>
-                  </div>
-                  <span className="mi-badge" data-tone="ok">Included</span>
-                </div>
-                <button
-                  className={on ? 'mi-btn' : 'mi-btn mi-btn-2'}
-                  style={{ marginTop: '0.875rem' }}
-                  onClick={() => request(o.id)}
-                >
-                  {on ? '\u2713  Activation requested' : o.ctaLabel}
-                </button>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
-                  {on
-                    ? 'We\u2019ll have it live for your move-in date. Tap again to cancel.'
-                    : o.includedReason}
-                </p>
-              </div>
-            )
-          }
-
-          // Configurator branch — a quote, not a cart.
-          if (o.mode === 'quote') {
-            return (
-              <div key={o.id} className="mi-card mi-card-p" style={{ marginBottom: '0.625rem' }}>
-                <div className="mi-opt-title">{o.name}</div>
-                <div className="mi-opt-blurb">{o.blurb}</div>
-                <button
-                  className={on ? 'mi-btn' : 'mi-btn mi-btn-2'}
-                  style={{ marginTop: '0.875rem' }}
-                  onClick={() => request(o.id)}
-                >
-                  {on ? '\u2713  Consultation requested' : o.ctaLabel}
-                </button>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
-                  {on
-                    ? 'Someone will call to size it up. Nothing is charged until you approve a quote.'
-                    : 'Takes about a minute, and nothing is charged today.'}
-                </p>
-              </div>
-            )
-          }
-
-          // Orderable.
+          const on = isOn(o)
+          const Art = ART[o.category]
           return (
-            <label key={o.id} className="mi-opt" data-sel={on ? 'true' : 'false'}>
-              <input type="checkbox" checked={on} onChange={() => toggle(o.id)}
-                     style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} />
-              <span className="mi-tick"><Check /></span>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4375rem', flexWrap: 'wrap' }}>
-                  <span className="mi-opt-title">{o.name}</span>
-                  {o.leaseRequired && <span className="mi-badge" data-tone="req">Lease requires it</span>}
+            <div key={o.id} className="mi-prod" data-on={on ? 'true' : 'false'}>
+              <div className="mi-art-inline"><Art size={64} /></div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="mi-prod-title">{o.name}</div>
+                    <p className="mi-opt-blurb" style={{ margin: '0.1875rem 0 0' }}>
+                      {o.blurb}
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="mi-switch"
+                    checked={on}
+                    onChange={() => toggle(o)}
+                    aria-label={`${on ? 'Remove' : 'Add'} ${o.name}`}
+                  />
                 </div>
-                <div className="mi-opt-blurb">{o.blurb}</div>
-                <div className="mi-opt-note">{o.provider}</div>
+
+                {o.leaseRequired && (
+                  <div style={{ marginTop: '0.375rem' }}>
+                    <span className="mi-badge" data-tone="req">Lease requires it</span>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', alignItems: 'center',
+                              justifyContent: 'space-between', gap: '0.75rem',
+                              marginTop: '0.5rem' }}>
+                  <span className="mi-prod-price">{price(o)}</span>
+                  <button type="button"
+                          className={on ? 'mi-pill mi-pill-on' : 'mi-pill'}
+                          onClick={() => toggle(o)}>
+                    {cta(o, on)}
+                  </button>
+                </div>
+
+                {on && (
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-3)',
+                              margin: '0.5rem 0 0' }}>
+                    {o.mode === 'quote'
+                      ? 'Someone will call to size it up. Nothing is charged until you approve a quote.'
+                      : o.mode === 'included'
+                      ? 'We’ll have it live for your move-in date.'
+                      : 'Starts with your move-in date. Cancel any time from your resident app.'}
+                  </p>
+                )}
               </div>
-              {o.monthlyCents !== null && (
-                <span className="mi-price">{money(o.monthlyCents)}/mo</span>
-              )}
-            </label>
+            </div>
           )
         })}
+
+        {/* The store is a place to go, not a line item — the code is issued to
+            this resident and goes live when setup completes. */}
+        {storeCode && (
+          <div className="mi-prod" style={{ marginTop: '0.625rem' }}>
+            <div className="mi-art-inline"><GiftArt size={64} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="mi-prod-title">{ctx.property.name} community store</div>
+              <p className="mi-opt-blurb" style={{ margin: '0.1875rem 0 0' }}>
+                {storeCode.percentOff}% off everything — doormats, plants, supplies
+                and more.
+              </p>
+              <div className="mi-code" aria-label="Your welcome code">
+                {storeCode.code}
+                <span>{storeCode.percentOff}% off</span>
+              </div>
+              <a href={storeCode.storeUrl} target="_blank" rel="noreferrer"
+                 className="mi-btn" style={{ marginTop: '0.5rem' }}>
+                Open community store
+              </a>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
+                Yours alone, one use. It goes live the moment you finish setup.
+              </p>
+            </div>
+          </div>
+        )}
 
         <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginTop: '1.25rem' }}>
           Anything you skip stays available in your resident app.
         </p>
       </div>
 
-      <div className="mi-foot">
-        <Link href={`/${siteSlug}/move-in/store`} className="mi-btn">Continue</Link>
-        <Link href={`/${siteSlug}/move-in/confirmation`} className="mi-skip">
-          Skip — I&apos;m done
-        </Link>
-      </div>
+      <StepFooter
+        href={`/${siteSlug}/move-in/review`}
+        label={monthly > 0
+          ? `Next: Review and pay · ${money(monthly)}/mo added`
+          : 'Next: Review and pay'}
+      />
+      <StripeMark />
     </>
   )
 }

@@ -136,7 +136,7 @@ export async function fetchMoveInContext(
       parkingFee: site.parking_fee_cents
         ? {
             label: site.parking_fee_label ?? 'Parking & amenity fee',
-            monthlyCents: site.parking_fee_cents,
+            amountCents: site.parking_fee_cents,
             covers: site.parking_fee_covers ?? '',
           }
         : null,
@@ -151,9 +151,24 @@ export async function fetchMoveInContext(
       // The roster's number is a prefill, not a confirmation — screen 01 asks
       // for it because this is the field the sync most often lacks.
       mobile: null,
-      householdMembers: (household.data ?? []).map(m => ({
-        firstName: m.first_name, lastName: m.last_name, invited: false,
-      })),
+      household: [
+        {
+          id: resident.id,
+          firstName: resident.first_name,
+          lastName: resident.last_name,
+          role: 'me' as const,
+          avatarUrl: null,
+          alreadyActive: false,
+        },
+        ...(household.data ?? []).map(m => ({
+          id: m.id,
+          firstName: m.first_name,
+          lastName: m.last_name,
+          role: 'occupant' as const,
+          avatarUrl: null,
+          alreadyActive: Boolean(m.active),
+        })),
+      ],
       leaseTermMonths: resident.lease_term_months,
       leaseEndDate: resident.lease_end_date,
       storeCode: storeCode.data && site.store_url

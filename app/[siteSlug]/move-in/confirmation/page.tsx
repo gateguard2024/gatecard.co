@@ -32,7 +32,6 @@ export default function Confirmation() {
   const { ctx, s } = useMoveIn()
   const siteSlug = ctx.property.slug
 
-  const tier = ctx.parkingTiers.find(t => t.id === (s.parkingTierId || 'surface'))
   const [walletAdded, setWalletAdded] = useState(false)
   const fee = computeFee({
     fee: ctx.property.parkingFee,
@@ -45,11 +44,12 @@ export default function Confirmation() {
   // touches a card.
   const receipt = buildReceipt({
     ctx,
-    credentialKinds: s.extraCredentials,
-    cart: s.cart,
+    keys: s.keys,
     serviceIds: s.services,
     requestedIds: s.requested,
   })
+
+  const holders = ctx.resident.household.filter(m => s.passes.includes(m.id))
 
   const { firstName, lastName, unitNumber } = ctx.resident
   const directoryName =
@@ -58,48 +58,41 @@ export default function Confirmation() {
     : `${firstName} ${lastName.charAt(0).toUpperCase()}.`
 
   const items: ConfirmationItem[] = [
-    {
-      id: 'phone',
-      label: 'Phone key',
-      detail: 'Gate and building door, from your phone',
-      state: 'working_now',
-      rail: 'included',
-    },
-    ...(ctx.parkingTiers.length === 0 && s.vehicle.plate ? [{
-      id: 'parking',
-      label: 'Parking pass',
-      detail: `${s.vehicle.plate} · ${s.vehicle.state}`,
+    // One row per person, because a pass is granted to a person and the
+    // resident needs to see that they provisioned access for someone else.
+    ...holders.map(m => ({
+      id: `pass-${m.id}`,
+      label: `${m.firstName}’s phone key`,
+      detail: m.alreadyActive
+        ? 'Already on the roster — unchanged'
+        : `Gate and building door, from ${m.role === 'me' ? 'your' : 'their'} phone`,
       state: 'working_now' as ItemState,
       rail: 'included' as const,
-    }] : []),
-    ...(tier ? [{
-      id: 'parking-tier',
-      label: tier.label,
-      detail: s.vehicle.plate
-        ? `${s.vehicle.plate} · ${s.vehicle.state}`
-        : 'Registered to your unit',
-      state: 'working_now' as ItemState,
-      rail: (tier.included ? 'included' : 'included') as 'included',
-    }] : []),
-    ...s.extraCredentials.map(k => {
-      const c = ctx.credentials.find(x => x.kind === k)!
-      return {
+    })),
+    ...holders.flatMap(m => {
+      const v = s.vehicles[m.id]
+      if (!v?.plate.trim()) return []
+      return [{
+        id: `veh-${m.id}`,
+        label: `${m.firstName}’s vehicle`,
+        detail: [`${v.plate} · ${v.state}`, [v.make, v.model].filter(Boolean).join(' ')]
+          .filter(Boolean).join(' · '),
+        state: 'working_now' as ItemState,
+        rail: 'included' as const,
+      }]
+    }),
+    ...(['fob', 'keytag'] as const).flatMap(k => {
+      const qty = s.keys[k]
+      if (qty <= 0) return []
+      const c = ctx.credentials.find(x => x.kind === k)
+      if (!c) return []
+      return [{
         id: `cred-${k}`,
-        label: c.label,
+        label: qty > 1 ? `${c.label} × ${qty}` : c.label,
         detail: 'Ships in 3–5 days · activates on first tap',
         state: 'on_the_way' as ItemState,
         rail: 'card' as const,
-      }
-    }),
-    ...Object.entries(s.cart).map(([id, q]) => {
-      const p = ctx.store.find(x => x.id === id)!
-      return {
-        id: `store-${id}`,
-        label: q > 1 ? `${p.name} × ${q}` : p.name,
-        detail: 'Ships in 3–5 days',
-        state: 'on_the_way' as ItemState,
-        rail: 'card' as const,
-      }
+      }]
     }),
     {
       id: 'directory',
@@ -133,19 +126,6 @@ export default function Confirmation() {
       }
     }),
   ]
-
-  const cardTotal =
-    ctx.credentials.filter(c => s.extraCredentials.includes(c.kind))
-      .reduce((n, c) => n + c.priceCents, 0)
-    + Object.entries(s.cart).reduce((n, [id, q]) => {
-        const p = ctx.store.find(x => x.id === id)
-        return n + (p ? p.priceCents * q : 0)
-      }, 0)
-
-  const monthly = s.services.reduce((n, id) => {
-    const o = ctx.services.find(x => x.id === id)
-    return n + (o?.monthlyCents ?? 0)
-  }, 0)
 
   return (
     <>
@@ -241,16 +221,6 @@ export default function Confirmation() {
             borderTop: '1px solid var(--line-2)', background: 'var(--surface-sunk)',
             borderRadius: '0 0 var(--r-card) var(--r-card)',
           }}>
-            {receipt.hasLease && (
-              <div className="mi-fact" style={{ padding: '0.25rem 0', border: 'none' }}>
-                <span className="mi-fact-k">Monthly, with your lease</span>
-                <span className="mi-fact-v">
-                  {receipt.leaseMonthlyCents === 0
-                    ? 'Covered'
-                    : `${money(receipt.leaseMonthlyCents)}/mo`}
-                </span>
-              </div>
-            )}
             {receipt.cardTodayCents > 0 && (
               <div className="mi-fact" style={{ padding: '0.25rem 0', border: 'none' }}>
                 <span className="mi-fact-k">On your card today</span>
@@ -264,9 +234,9 @@ export default function Confirmation() {
               </div>
             )}
             <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.625rem 0 0' }}>
-              Two totals, not one — your lease and your card are billed
-              separately. Nothing on your card can affect whether your key works,
-              and no card is kept on file for the lease items.
+              The parking and amenity fee is charged once for your unit, not per
+              person. Nothing here can affect whether your key works — your phone
+              pass is live either way.
             </p>
           </div>
         </div>

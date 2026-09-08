@@ -5,38 +5,34 @@ import { useEffect } from 'react'
 import { useMoveIn } from './state'
 
 /**
- * Step navigation.
+ * Step navigation across five steps.
  *
- * Browser back works, but there is no visible control — and this is used on a
+ * Browser back works, but there is no visible control — this is used on a
  * phone, outdoors, sometimes installed to the home screen where there is no
- * browser chrome at all. So the rail itself is the navigation.
+ * browser chrome at all. So the rail is the navigation.
  *
- * What it deliberately does NOT allow: jumping forward past where you've got
- * to. Screens 04–06 read answers from 01–03, and a resident who lands on the
- * confirmation without a plate or a phone number sees a summary of nothing and
- * assumes the portal is broken. Segments beyond your furthest step are inert.
+ * Forward is capped at the furthest step reached: later screens read answers
+ * from earlier ones, and a resident landing on Review with no passes and no
+ * plate sees a summary of nothing and concludes the portal is broken.
  */
 
-const SEGMENTS = ['', 'access', 'parking', 'services', 'store', 'confirmation']
+const SEGMENTS = ['', 'vehicles', 'keys', 'services', 'review']
 
 const LABELS = [
-  'Step 1 of 3 · Who you are',
-  'Step 2 of 3 · Your access',
-  'Step 3 of 3 · Parking',
-  'Optional · Services',
-  'Optional · Community store',
-  'All set',
+  'Step 1 of 5 · Who you are',
+  'Step 2 of 5 · Add vehicles',
+  'Step 3 of 5 · Choose physical keys',
+  'Step 4 of 5 · Choose home upgrades',
+  'Step 5 of 5 · Review and pay',
+  'Setup complete',
 ]
 
-const SHORT = ['Who you are', 'Your access', 'Parking', 'Services', 'Store', 'All set']
+const SHORT = ['Who you are', 'Vehicles', 'Keys', 'Services', 'Review']
 
 export function StepNav({ index }: { index: number }) {
   const { ctx, s, set } = useMoveIn()
   const base = `/${ctx.property.slug}/move-in`
 
-  // Reaching a step is what unlocks it. Recorded here rather than at each
-  // "Continue", so arriving by any route — rail, browser back, a reload —
-  // keeps the same record.
   useEffect(() => {
     if (index > s.furthest) set('furthest', index)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -49,33 +45,25 @@ export function StepNav({ index }: { index: number }) {
     <>
       <nav className="mi-rail" aria-label="Move-in steps">
         {SEGMENTS.map((_, i) => {
-          const on = i < index
           const now = i === index
           const canGo = reachable(i) && !now
-
           const seg = (
             <span className="mi-rail-seg"
-                  data-on={on ? 'true' : 'false'}
+                  data-on={i < index ? 'true' : 'false'}
                   data-now={now ? 'true' : 'false'} />
           )
-
-          // A segment you can't reach yet is not a link and not focusable —
-          // it shouldn't invite a tap that does nothing.
           return canGo ? (
             <Link key={i} href={href(i)} className="mi-rail-hit"
-                  aria-label={`Go to ${SHORT[i]}`}>
-              {seg}
-            </Link>
+                  aria-label={`Go to ${SHORT[i]}`}>{seg}</Link>
           ) : (
-            <span key={i} className="mi-rail-hit" aria-current={now ? 'step' : undefined}>
-              {seg}
-            </span>
+            <span key={i} className="mi-rail-hit"
+                  aria-current={now ? 'step' : undefined}>{seg}</span>
           )
         })}
       </nav>
 
       <div className="mi-rail-row">
-        {index > 0 ? (
+        {index > 0 && index < SEGMENTS.length ? (
           <Link href={href(index - 1)} className="mi-back" aria-label="Go back a step">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
                  strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -87,5 +75,14 @@ export function StepNav({ index }: { index: number }) {
         <span className="mi-rail-label">{LABELS[index]}</span>
       </div>
     </>
+  )
+}
+
+/** Stripe is doing the work; saying so is a trust cue on a payment flow. */
+export function StripeMark() {
+  return (
+    <div className="mi-stripe">
+      Powered by <b>stripe</b>
+    </div>
   )
 }

@@ -44,8 +44,8 @@ export interface Receipt {
 
 export interface ReceiptInput {
   ctx: MoveInContext
-  credentialKinds: string[]
-  cart: Record<string, number>
+  /** Physical backup keys ordered, by kind. */
+  keys: Record<'fob' | 'keytag', number>
   serviceIds: string[]
   requestedIds: string[]
 }
@@ -54,7 +54,10 @@ export function buildReceipt(input: ReceiptInput): Receipt {
   const { ctx } = input
   const lines: ReceiptLine[] = []
 
-  // ── Lease rail ────────────────────────────────────────────────────────────
+  // ── The unit's one-time fee ───────────────────────────────────────────────
+  // Collected at sign-up, so it rides the card rail with everything else. It
+  // is charged once per unit, not per person: authorising a second pass adds
+  // nothing to it.
   const fee = computeFee({
     fee: ctx.property.parkingFee,
     concession: ctx.resident.concession,
@@ -67,48 +70,38 @@ export function buildReceipt(input: ReceiptInput): Receipt {
       label: ctx.property.parkingFee!.label,
       detail: ctx.property.parkingFee!.covers || undefined,
       amountCents: fee.baseCents,
-      cadence: 'monthly',
-      rail: 'lease',
+      cadence: 'once',
+      rail: 'card',
     })
 
     // Shown as its own negative line rather than folded into the fee, so the
-    // resident can see what the property is doing for them — and so it is
-    // visible when it lapses.
+    // resident can see what the property is doing for them.
     if (fee.coveredCents > 0) {
       lines.push({
         id: 'concession',
         label: ctx.resident.concession!.label,
-        detail: fee.revertsOn
-          ? `First ${ctx.resident.concession!.months} months`
-          : 'For your lease term',
+        detail: 'Applied to your one-time fee',
         amountCents: -fee.coveredCents,
-        cadence: 'monthly',
-        rail: 'lease',
+        cadence: 'once',
+        rail: 'card',
       })
     }
   }
 
-  // ── Card rail ─────────────────────────────────────────────────────────────
-  for (const kind of input.credentialKinds) {
+  // ── Physical keys ─────────────────────────────────────────────────────────
+  // The only other thing bought during move-in. The community
+  // store is a discount code issued after checkout, so nothing from it can
+  // reach this document — that was the point of moving it out of the cart.
+  for (const kind of ['fob', 'keytag'] as const) {
+    const qty = input.keys[kind] ?? 0
+    if (qty <= 0) continue
     const c = ctx.credentials.find(x => x.kind === kind)
     if (!c || c.priceCents <= 0) continue
     lines.push({
       id: `cred-${kind}`,
-      label: c.label,
+      label: qty > 1 ? `${c.label} × ${qty}` : c.label,
       detail: 'Ships blank, activates on first tap',
-      amountCents: c.priceCents,
-      cadence: 'once',
-      rail: 'card',
-    })
-  }
-
-  for (const [id, qty] of Object.entries(input.cart)) {
-    const p = ctx.store.find(x => x.id === id)
-    if (!p || qty <= 0) continue
-    lines.push({
-      id: `store-${id}`,
-      label: qty > 1 ? `${p.name} × ${qty}` : p.name,
-      amountCents: p.priceCents * qty,
+      amountCents: c.priceCents * qty,
       cadence: 'once',
       rail: 'card',
     })
