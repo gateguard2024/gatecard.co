@@ -10,9 +10,24 @@
 const has = (...keys: string[]) =>
   keys.every(k => Boolean(process.env[k] && process.env[k]!.trim()))
 
+/**
+ * Force the whole app onto mock data, whatever else is configured.
+ *
+ * The demo subdomain and the production domain are the same project on Vercel,
+ * so they share an env unless something overrides it. Without this, adding real
+ * Supabase credentials for production silently breaks the demo: the mock
+ * property slugs stop resolving and every walkthrough link 404s in front of
+ * whoever you are presenting to.
+ *
+ * Set DEMO_MODE=1 on the demo deployment. It is deliberately one flag with one
+ * meaning — never infer demo-ness from the hostname.
+ */
+export const demoMode = () =>
+  process.env.DEMO_MODE === '1' || process.env.NEXT_PUBLIC_DEMO_MODE === '1'
+
 export const configured = {
   /** Portal's Supabase project — jtvxfmhlmokyuzdxxqpp. */
-  supabase: () => has('NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'),
+  supabase: () => !demoMode() && has('NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'),
   clerk:    () => has('CLERK_SECRET_KEY', 'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY'),
   stripe:   () => has('STRIPE_SECRET_KEY'),
   connect:  () => has('STRIPE_SECRET_KEY', 'STRIPE_CONNECT_CLIENT_ID'),

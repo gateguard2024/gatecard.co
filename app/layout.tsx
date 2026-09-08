@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Montserrat } from 'next/font/google'
 import './globals.css'
-import { configured } from '@/lib/env'
+import { configured, demoMode } from '@/lib/env'
 
 const montserrat = Montserrat({
   subsets: ['latin'],
@@ -14,7 +14,9 @@ export const metadata: Metadata = {
   // While the app is on mock data it is a demo sitting on a real domain, and
   // it should not be indexed. This lifts itself the moment Supabase is
   // configured — no flag to remember to flip.
-  robots: configured.supabase() ? undefined : { index: false, follow: false },
+  robots: configured.supabase() && !demoMode()
+    ? undefined
+    : { index: false, follow: false },
   title: 'GateCard',
   description: 'Move-in, access and services for your community.',
   manifest: '/manifest.json',
