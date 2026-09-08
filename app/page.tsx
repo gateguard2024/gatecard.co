@@ -1,6 +1,8 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { PROPERTIES, DEMO_NOTES } from '@/lib/mock/properties'
 import { dataSource } from '@/lib/data'
+import { demoMode } from '@/lib/env'
 import { initials } from '@/components/chrome'
 
 export const dynamic = 'force-dynamic'
@@ -14,6 +16,11 @@ export const dynamic = 'force-dynamic'
  * in the screens, and they render differently purely because their data does.
  */
 export default function Home() {
+  // On the demo deployment the root IS the demo site — a link handed to a
+  // property manager has to land on the thing you want them to see, not on an
+  // index that asks them to click again.
+  if (demoMode()) redirect('/demo')
+
   const live = dataSource() === 'supabase'
 
   return (
