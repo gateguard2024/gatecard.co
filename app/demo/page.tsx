@@ -24,42 +24,51 @@ export const dynamic = 'force-dynamic'
 const STEPS = [
   {
     art: PhoneKeyArt,
-    title: 'Who you are',
-    resident: 'Confirms the household and takes one mobile number.',
-    manager: 'Passes are granted per person from one link — no separate invite per adult.',
-  },
-  {
-    art: CarArt,
-    title: 'Vehicles',
-    resident: 'Adds a plate for each person with a pass.',
-    manager: 'Plates arrive attached to a named resident, not to a unit.',
+    title: 'Welcome',
+    resident: 'Confirms their name, unit and date, and gives us a mobile number.',
+    manager: 'Identity is read-only. Your office owns the lease record; we never let a resident edit it.',
   },
   {
     art: FobArt,
-    title: 'Physical keys',
-    resident: 'Orders an optional fob or tag as a backup.',
-    manager: 'Capped at one per active pass. Keys ship inert and enrol on first tap.',
+    title: 'Your access',
+    resident: 'Their phone key, an optional fob or tag, their plate, and how they appear at the callbox.',
+    manager: 'Plates arrive attached to a named person, not to a unit number.',
+  },
+  {
+    art: CarArt,
+    title: 'Household access',
+    resident: 'Switches on a phone key for anyone else on the lease.',
+    manager: 'One fee per unit. A second pass costs the resident nothing, so spouses actually get keys.',
   },
   {
     art: WifiArt,
-    title: 'Home services',
-    resident: 'Turns on internet, TV, insurance — whatever you offer.',
-    manager: 'Your offer table decides what appears. Commission is tracked per order.',
+    title: 'Optional services',
+    resident: 'Turns on security, TV, internet — whatever you offer here.',
+    manager: 'Your offer table decides what appears. Commission tracked per order.',
   },
   {
     art: WalletArt,
-    title: 'Review and pay',
-    resident: 'One summary, one card, done.',
-    manager: 'The parking and amenity fee is collected here, at sign-up.',
+    title: 'Review and payment',
+    resident: 'One summary, one card, done. A concession code zeroes the fee.',
+    manager: 'The only checkout in the flow. Everything before it is free to abandon.',
   },
 ]
 
 const REMOVED = [
   'Chasing a resident for a plate and a phone number',
-  'Creating the Brivo user, the group and the unit site by hand',
+  'Creating the access-control user, group and unit by hand',
   'Handing out a fob and writing down who took it',
   'Fielding “my key doesn’t work” on move-in weekend',
   'Collecting the parking and amenity fee at the desk',
+]
+
+/** The part that happens without anyone opening a browser. */
+const LOOP = [
+  ['Your agent posts the move-in or renewal', 'In your PMS, exactly as they do today. Nothing changes for them.'],
+  ['We pick it up from the access system', 'The roster sync gives us the new resident within the hour.'],
+  ['We email them their sign-up link', 'And add them to the compliance list as not-yet-signed-up.'],
+  ['They finish the five screens', 'Two minutes, on their phone, wherever they are.'],
+  ['You get the list every Monday and Friday', 'Who has signed up, who hasn’t, and how long they have been outstanding.'],
 ]
 
 export default function DemoSite() {
@@ -79,7 +88,7 @@ export default function DemoSite() {
         <p className="mi-lede" style={{ fontSize: '1.0625rem', maxWidth: '52ch' }}>
           Five screens, about two minutes, on the phone they already have.
           Nobody visits the leasing office to get a key, and nobody at the desk
-          types anything into Brivo.
+          types anything into your access system.
         </p>
 
         {/* ── The five screens ───────────────────────────────────────────── */}
@@ -126,11 +135,7 @@ export default function DemoSite() {
         <div style={{ display: 'grid', gap: '0.875rem' }}>
           {list.map(ctx => {
             const note = DEMO_NOTES[ctx.property.slug]
-            const fee = computeFee({
-              fee: ctx.property.parkingFee,
-              concession: ctx.resident.concession,
-              termMonths: ctx.resident.leaseTermMonths,
-            })
+            const fee = computeFee({ fee: ctx.property.parkingFee, promo: null })
             return (
               <div key={ctx.property.slug} className="mi-card mi-card-p"
                    style={{ ['--accent' as string]: ctx.property.accent }}>
@@ -151,14 +156,13 @@ export default function DemoSite() {
                   {fee && (
                     <div style={{ textAlign: 'right', flex: 'none' }}>
                       <div style={{ fontSize: '1.125rem', fontWeight: 700,
-                                    letterSpacing: '-0.02em',
-                                    color: fee.netCents === 0 ? 'var(--ok)' : undefined }}>
-                        {fee.netCents === 0 ? 'Comped' : money(fee.netCents)}
+                                    letterSpacing: '-0.02em' }}>
+                        {money(fee.baseCents)}
                       </div>
                       <div style={{ fontSize: '0.625rem', color: 'var(--text-3)',
                                     textTransform: 'uppercase', letterSpacing: '0.06em',
                                     fontWeight: 700 }}>
-                        due at sign-up
+                        one-time, per unit
                       </div>
                     </div>
                   )}
@@ -180,6 +184,30 @@ export default function DemoSite() {
             )
           })}
         </div>
+
+        {/* ── The loop ──────────────────────────────────────────────────── */}
+        <div className="mi-state-h">What happens without you</div>
+        <div className="mi-card">
+          {LOOP.map(([title, detail], i) => (
+            <div key={title} className="mi-card-p"
+                 style={{ borderTop: i ? '1px solid var(--line)' : 'none',
+                          display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+              <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--text-3)',
+                             letterSpacing: '0.06em', paddingTop: 2, flex: 'none' }}>
+                {i + 1}
+              </span>
+              <div>
+                <div className="mi-opt-title" style={{ fontSize: '0.9375rem' }}>{title}</div>
+                <div className="mi-opt-blurb" style={{ fontSize: '0.8125rem' }}>{detail}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--text-2)', margin: '0.75rem 0 0' }}>
+          <b>Nobody&apos;s access is ever switched off for not paying.</b> A resident
+          who hasn&apos;t signed up shows on your list as outstanding — it&apos;s a
+          lease matter for your office, not a gate we close on them.
+        </p>
 
         {/* ── What goes away ────────────────────────────────────────────── */}
         <div className="mi-state-h">What your staff stops doing</div>

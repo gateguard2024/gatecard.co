@@ -62,8 +62,11 @@ Not resident opt-in, and **not recurring**. One charge per unit, taken at sign-u
 primary resident pays it and may authorise passes for the rest of the household — a
 second or third person on the lease does not multiply it.
 
-Placeholder amount in the mock data: **$125 per unit.** A property may comp part or all
-of it as a concession (see D8); the resident is charged the remainder at sign-up.
+**$150 per unit** is the reference amount, and it is per SITE, not a platform constant —
+`property.parkingFee.amountCents`. The admin surface edits it per site. Physical add-ons
+are $75 (fob) and $45 (key tag), one per person with a pass, either/or.
+
+Charged at move-in **and again at each renewal**, covering a twelve-month term.
 
 ### D3 — RESOLVED: the fee is collected at sign-up, on the card. No ledger, ever.
 
@@ -193,12 +196,12 @@ are not designed yet.
 
 | # | Route | Purpose | Checkout? |
 |---|-------|---------|-----------|
-| 01 | `/[siteSlug]/move-in` | Who you are. Household from Brivo; a phone pass granted per person from ONE session; one editable field (mobile); the unit's one-time fee is stated, not charged | No |
-| 02 | `/[siteSlug]/move-in/vehicles` | One vehicle card per pass-holder. First is required, the rest optional — a half-filled optional vehicle blocks | No |
-| 03 | `/[siteSlug]/move-in/keys` | Optional backup fob / key tag, capped at one per active pass. Framed as backups: the phone pass already works | No |
-| 04 | `/[siteSlug]/move-in/services` | Offer-engine filtered (included / sellable / quote / unavailable); community-store card; prominent skip | No |
-| 05 | `/[siteSlug]/move-in/review` | One itemised summary, callbox-directory opt-in, and the ONLY checkout: the one-time fee less any concession, plus keys, plus monthly services | **Card — all of it** |
-| — | `/[siteSlug]/move-in/confirmation` | Grouped by **state** — working now / on the way / scheduled — not by product; Add to Wallet is the only button; store code revealed | — |
+| 01 | `/[siteSlug]/move-in` | Welcome. Name, unit, date and email are READ ONLY — from the roster, changed at the leasing office. Confirm the email (a mobile pass cannot issue without one) and give a mobile. Others on the lease are listed, not chosen | No |
+| 02 | `/[siteSlug]/move-in/access` | The primary resident's own setup: phone key (fee stated, not charged), optional fob/tag, their vehicle or "no vehicle", and the callbox directory — opt out, or pick which number rings | No |
+| 03 | `/[siteSlug]/move-in/household` | One card per other person on the lease. Switching someone on expands to the same add-on and vehicle controls. **Says plainly that a second pass costs nothing** | No |
+| 04 | `/[siteSlug]/move-in/services` | Offer-engine filtered (included / sellable / quote / unavailable); prominent skip | No |
+| 05 | `/[siteSlug]/move-in/review` | Household summary, concession-code box, itemised money, and the ONLY checkout | **Card — all of it** |
+| — | `/[siteSlug]/move-in/confirmation` | Grouped by **state** — working now / on the way / scheduled. Mobile-pass email instructions (NOT an Add-to-Wallet button — see docs/BRIVO-API.md), support number, store code | — |
 
 `/demo` is the presenter's landing page — what you put in front of a property manager.
 `/` is the engineering index. Neither is a resident surface.
@@ -211,6 +214,9 @@ are not designed yet.
 - **"Not your unit?" routes to the leasing office**, so a stale sync is never a dead end.
 - **Screens 01–04 must complete on a bad connection, in under four minutes, with no
   payment.** Test every proposed feature against this.
+- **The primary and a household member see identical controls.** Same add-on picker, same
+  vehicle form, same order. A housemate offered a lesser set of choices reads as a
+  second-class resident, and the leaseholder is the one who notices.
 - **A pass is granted to a person, and a vehicle and a key belong to a pass-holder.** One
   adult provisioning access for another is a real act — it is explicit, one card per
   person, and written to the audit trail with who granted it.
@@ -246,6 +252,75 @@ per screen, manual-add rate (sync quality), leasing tickets per move-in (renewal
    advice.**
 6. **Does Brivo's API expose mobile credential issuance and wallet provisioning?** The
    confirmation screen's most valuable action depends on it.
+
+---
+
+## THE OPERATING LOOP
+
+The portal is one step in a loop that mostly runs without anyone opening a browser:
+
+1. **The leasing agent posts the move-in or renewal in the PMS.** Nothing about their job
+   changes. This is the only human action we depend on.
+2. **Brivo picks it up** through its PMS connector, and our roster sync reads it from
+   Brivo. Brivo does not push roster changes — see `docs/BRIVO-API.md` — so this is a
+   polling reconciliation, with the guards in `lib/reconcile.ts`.
+3. **We maintain a compliance list** per site: who has completed sign-up and who has not,
+   with an age on every outstanding row. New residents are emailed their link on detection.
+4. **The resident completes the five screens** and pays.
+5. **We email the property manager the list every Monday and Friday.**
+
+### The compliance list is the enforcement mechanism — not the gate
+
+A resident who has not signed up or not paid appears on the property's list as
+outstanding. That is the whole remedy. **There is no code path from non-payment to a
+revoked credential**, and there must never be one:
+
+- Denying gate or building access for non-payment reads as a self-help lockout in most
+  states. It is illegal, and it is the landlord's remedy, not a vendor's.
+- It is written into the Property Partnership Agreement at §6.3 as non-waivable, and
+  carved out of the liability cap.
+
+Anyone proposing "just turn off their key until they pay" is proposing a lawsuit.
+
+---
+
+## CONCESSION PASSES — the property buys blocks, residents redeem codes
+
+Superseded the earlier "the property comps N dollars of the fee" model.
+
+- A property buys passes in blocks — 5 or 10 — at a **discounted unit price ($120)**.
+- We issue **promo codes**, delivered to the property as cards to hand out.
+- A resident types a code at checkout and the fee goes to **zero**. The property already
+  paid; the gap between $120 and $150 is our volume discount to them.
+- Every code is traceable to the block it came from, has a status
+  (`unused | redeemed | void | expired`), and can be reconciled against what the property
+  bought. A block is inventory that runs out.
+- **What the property paid never reaches the resident's screen.** `costCents` exists on
+  the record and appears in no receipt, total or email.
+- Every refusal names its reason. "Invalid code" on a screen the resident cannot get past
+  is how a move-in becomes a phone call — and the agent who handed out the card needs to
+  know whether it was already used or simply mistyped.
+
+Validation is **server-side**. The browser posts a code and receives a verdict; shipping
+the property's unredeemed block to the client would let anyone read every code it paid
+for. `lib/data/supabase-source.ts` returns an empty `promoCodes` array deliberately.
+
+---
+
+## PAYMENT SPLIT — four parties, configured per site
+
+`lib/split.ts`. Gate Guard, Hello Package, the sales rep and the servicing dealer. The mix
+is **site configuration**: a community we sold and service ourselves splits nothing like
+one a partner sold and a third party services.
+
+**The property is not a party.** It receives no share of the fee or of optional resident
+services — Property Partnership Agreement §5.2. If that ever changes, it changes in the
+agreement first and in the code second.
+
+Shares are basis points and must total exactly 10000; `validateSplit` throws otherwise
+rather than guessing who the remainder belongs to. Allocation is largest-remainder so the
+parts sum to the whole exactly and deterministically — a payout report that shifts a cent
+between runs is a support ticket. 356 assertions in `tests/money.test.mts`.
 
 ---
 

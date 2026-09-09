@@ -1,68 +1,61 @@
-import type { MoveInContext } from './types'
+import type { MoveInContext, PromoResult } from './types'
 import { computeFee } from './fees'
 
 /**
  * One itemised summary of everything a resident set up.
  *
- * ── One receipt, not one charge ─────────────────────────────────────────────
- * The ask was a single document rather than "a fee somewhere on your lease" and
- * "a separate card charge". That is worth having, and it does NOT require
- * putting the lease-bound fee on a card — which is what a single *transaction*
- * would require, and what D3 blocks while the collection path is unresolved.
+ * Everything now settles through one card at sign-up: the unit's parking and
+ * amenity fee, any physical add-ons, and any monthly service the resident chose
+ * to add. There is no lease rail and no rent ledger — we have no access to one
+ * and nothing here claims otherwise.
  *
- * So every line carries its rail, and the document says plainly how each one is
- * paid. A resident gets one thing to read; the money keeps travelling by two
- * routes. Presenting them as one payment would be the lie.
+ * What the property paid for a concession pass never appears. The resident sees
+ * that their fee is covered and by whom; the block's unit cost is our commercial
+ * arrangement with the property and is none of the resident's business.
  *
- * Pure — no context beyond what is passed in, so it can render on a screen, in
- * an email, and in a PDF without drifting between them.
+ * Pure — no context beyond what is passed in, so it renders identically on a
+ * screen, in an email and in a PDF rather than drifting between them.
  */
 
-export type Rail = 'lease' | 'card'
 export type Cadence = 'once' | 'monthly'
 
 export interface ReceiptLine {
   id: string
   label: string
   detail?: string
-  /** Negative for a concession. */
+  /** Negative for a concession credit. */
   amountCents: number
   cadence: Cadence
-  rail: Rail
   /** Set for things with no price: an activation, a quote request. */
   note?: string
 }
 
 export interface Receipt {
   lines: ReceiptLine[]
-  cardTodayCents: number
-  cardMonthlyCents: number
-  leaseMonthlyCents: number
-  hasCard: boolean
-  hasLease: boolean
+  /** Charged to the card now. */
+  dueTodayCents: number
+  /** Recurring, starting at move-in. */
+  monthlyCents: number
+  /** Requested but not sold — activations and quotes. */
+  pending: ReceiptLine[]
 }
 
 export interface ReceiptInput {
   ctx: MoveInContext
-  /** Physical backup keys ordered, by kind. */
-  keys: Record<'fob' | 'keytag', number>
+  /** Per household member: whether they hold a pass, and their add-on. */
+  members: Record<string, { pass: boolean; addOn: 'none' | 'fob' | 'keytag' }>
   serviceIds: string[]
   requestedIds: string[]
+  promo: PromoResult | null
 }
 
 export function buildReceipt(input: ReceiptInput): Receipt {
   const { ctx } = input
   const lines: ReceiptLine[] = []
 
-  // ── The unit's one-time fee ───────────────────────────────────────────────
-  // Collected at sign-up, so it rides the card rail with everything else. It
-  // is charged once per unit, not per person: authorising a second pass adds
-  // nothing to it.
-  const fee = computeFee({
-    fee: ctx.property.parkingFee,
-    concession: ctx.resident.concession,
-    termMonths: ctx.resident.leaseTermMonths,
-  })
+  // ── The unit's one-time fee ────────────────────────────────────────────────
+  // One charge per unit, not per person. Authorising a second pass adds nothing.
+  const fee = computeFee({ fee: ctx.property.parkingFee, promo: input.promo })
 
   if (fee) {
     lines.push({
@@ -71,42 +64,38 @@ export function buildReceipt(input: ReceiptInput): Receipt {
       detail: ctx.property.parkingFee!.covers || undefined,
       amountCents: fee.baseCents,
       cadence: 'once',
-      rail: 'card',
     })
 
-    // Shown as its own negative line rather than folded into the fee, so the
-    // resident can see what the property is doing for them.
+    // Its own negative line rather than folded into the fee, so the resident
+    // can see what the property did for them — and so it is visible if a code
+    // is later reversed.
     if (fee.coveredCents > 0) {
       lines.push({
         id: 'concession',
-        label: ctx.resident.concession!.label,
-        detail: 'Applied to your one-time fee',
+        label: `Concession — code ${input.promo!.code}`,
+        detail: `Covered by ${ctx.property.name}`,
         amountCents: -fee.coveredCents,
         cadence: 'once',
-        rail: 'card',
       })
     }
   }
 
-  // ── Physical keys ─────────────────────────────────────────────────────────
-  // The only other thing bought during move-in. The community
-  // store is a discount code issued after checkout, so nothing from it can
-  // reach this document — that was the point of moving it out of the cart.
-  for (const kind of ['fob', 'keytag'] as const) {
-    const qty = input.keys[kind] ?? 0
-    if (qty <= 0) continue
-    const c = ctx.credentials.find(x => x.kind === kind)
+  // ── Physical add-ons, one per person with a pass ──────────────────────────
+  for (const m of ctx.resident.household) {
+    const sel = input.members[m.id]
+    if (!sel?.pass || sel.addOn === 'none') continue
+    const c = ctx.credentials.find(x => x.kind === sel.addOn)
     if (!c || c.priceCents <= 0) continue
     lines.push({
-      id: `cred-${kind}`,
-      label: qty > 1 ? `${c.label} × ${qty}` : c.label,
+      id: `addon-${m.id}`,
+      label: `${c.label} — ${m.firstName}`,
       detail: 'Ships blank, activates on first tap',
-      amountCents: c.priceCents * qty,
+      amountCents: c.priceCents,
       cadence: 'once',
-      rail: 'card',
     })
   }
 
+  // ── Monthly services the resident actually added ──────────────────────────
   for (const id of input.serviceIds) {
     const o = ctx.services.find(x => x.id === id)
     if (!o || o.monthlyCents == null) continue
@@ -116,41 +105,34 @@ export function buildReceipt(input: ReceiptInput): Receipt {
       detail: o.provider,
       amountCents: o.monthlyCents,
       cadence: 'monthly',
-      rail: 'card',
     })
   }
 
   // Activations and quote requests are on the receipt because the resident
   // asked for them and will expect to see them — but they carry no amount,
   // because neither is a sale.
+  const pending: ReceiptLine[] = []
   for (const id of input.requestedIds) {
     const o = ctx.services.find(x => x.id === id)
     if (!o) continue
-    lines.push({
+    pending.push({
       id: `req-${id}`,
       label: o.mode === 'quote' ? `${o.name} consultation` : `${o.name} activation`,
       amountCents: 0,
       cadence: 'once',
-      rail: 'card',
       note: o.mode === 'quote'
         ? 'Nothing charged until you approve a quote'
         : 'Live for your move-in date',
     })
   }
 
-  const sum = (rail: Rail, cadence: Cadence) =>
-    lines
-      .filter(l => l.rail === rail && l.cadence === cadence)
-      .reduce((n, l) => n + l.amountCents, 0)
-
-  const leaseMonthlyCents = Math.max(0, sum('lease', 'monthly'))
+  const sum = (c: Cadence) =>
+    lines.filter(l => l.cadence === c).reduce((n, l) => n + l.amountCents, 0)
 
   return {
     lines,
-    cardTodayCents: sum('card', 'once'),
-    cardMonthlyCents: sum('card', 'monthly'),
-    leaseMonthlyCents,
-    hasCard: lines.some(l => l.rail === 'card' && l.amountCents > 0),
-    hasLease: lines.some(l => l.rail === 'lease'),
+    dueTodayCents: Math.max(0, sum('once')),
+    monthlyCents: Math.max(0, sum('monthly')),
+    pending,
   }
 }

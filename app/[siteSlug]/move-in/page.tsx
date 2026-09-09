@@ -1,37 +1,31 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { StepFooter, NotYourUnit, Check, money } from '@/components/chrome'
+import { StepFooter, NotYourUnit } from '@/components/chrome'
 import { StepNav, StripeMark } from './nav'
 import { useMoveIn } from './state'
-import { computeFee } from '@/lib/fees'
+import { formatMoveInDate } from '@/lib/dates'
 
 /**
- * 01 · Who you are
+ * 01 · Welcome
  *
- * Two jobs: confirm who on the lease gets a phone pass, and capture the one
- * field the roster reliably lacks — a mobile number.
+ * Confirm who this is, and capture the two things the roster reliably lacks or
+ * gets stale: a mobile number and a working email.
  *
- * The fee is shown as INCLUDED WITH THE UNIT rather than as a price. It is
- * written into the lease, so leading with a dollar figure on the welcome screen
- * frames a lease term as a charge the resident is about to incur.
+ * Name, unit and move-in date are READ ONLY. They come from the property's
+ * roster, and a resident editing them here would put our record out of step
+ * with the lease — so the screen says where to go instead. That is a feature:
+ * the leasing office owns identity, we own access.
  *
- * Granting a pass to someone else is a real act: one adult is provisioning
- * building access for another. It is deliberately explicit, one card per person,
- * rather than a checkbox in a list.
+ * The email matters more than it looks. A Brivo mobile pass cannot be issued to
+ * a user without one, so a wrong address here is a resident standing at a gate
+ * that will not open. It is confirmed explicitly rather than assumed.
  */
-export default function WhoYouAre() {
+export default function Welcome() {
   const { ctx, s, set } = useMoveIn()
   const siteSlug = ctx.property.slug
   const { property, resident } = ctx
 
-  const fee = computeFee({
-    fee: property.parkingFee,
-    concession: resident.concession,
-    termMonths: resident.leaseTermMonths,
-  })
-
-  /** Format as they type. A phone number is the one thing they hand-key here. */
   const format = (raw: string) => {
     const d = raw.replace(/\D/g, '').slice(0, 10)
     if (d.length <= 3) return d
@@ -64,106 +58,79 @@ export default function WhoYouAre() {
   }, [s.mobile])
 
   const digits = s.mobile.replace(/\D/g, '').slice(0, 10)
-  const ready = digits.length === 10
+  const ready = digits.length === 10 && s.emailConfirmed
 
-  const me = resident.household.find(m => m.role === 'me')
   const others = resident.household.filter(m => m.role !== 'me')
-
-  const toggle = (id: string) =>
-    set('passes', s.passes.includes(id)
-      ? s.passes.filter(x => x !== id)
-      : [...s.passes, id])
-
-  const initials = (f: string, l: string) =>
-    `${f.charAt(0)}${l.charAt(0)}`.toUpperCase()
-
   const ROLE: Record<string, string> = {
-    me: '(Me)', leaseholder: '(Leaseholder)', occupant: '(Occupant)',
+    leaseholder: 'Leaseholder', occupant: 'Occupant', me: 'You',
   }
+  const isRenewal = resident.leaseTermMonths !== null && resident.mobile !== null
 
   return (
     <>
       <StepNav index={0} />
       <div className="mi-body">
         <h1 className="mi-h1">Welcome home, {resident.firstName}.</h1>
-        <p className="mi-lede">Let&apos;s get your gate ready. 2 minutes.</p>
+        <p className="mi-lede">
+          Let&apos;s get your access working before you carry the first box in.
+          Five short steps, about two minutes.
+        </p>
 
-        {fee && (fee.fullyCovered ? (
-          <div className="mi-free" style={{ display: 'block' }}>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <span aria-hidden>✓</span>
-              <span>Included with Unit {resident.unitNumber}:</span>
-            </div>
-            <div style={{ paddingLeft: '1.5rem', marginTop: '0.25rem', fontWeight: 600 }}>
-              {property.parkingFee!.label.replace(/\s*fee$/i, ' access')}
-            </div>
-          </div>
-        ) : (
-          /* One charge for the unit, not per person — said here, before anyone
-             hesitates over adding a pass for their partner. */
-          <div className="mi-note">
-            <div className="mi-note-row">
-              <span>{property.parkingFee!.label} · Unit {resident.unitNumber}</span>
-              <b>{money(fee.netCents)}</b>
-            </div>
-            <p>
-              {property.parkingFee!.covers}. Charged once at sign-up for the whole
-              unit{fee.partiallyCovered
-                ? `, after ${money(fee.coveredCents)} covered by ${property.name}`
-                : ''} — not per person.
-            </p>
-          </div>
-        ))}
-
-        <div className="mi-label" style={{ margin: '1.5rem 0 0.625rem' }}>
-          Who gets a phone pass
+        <div className="mi-free">
+          <span aria-hidden>✓</span>
+          Nothing to pay on this screen or the next three.
         </div>
 
-        <div className="mi-people" data-one={others.length === 0 ? 'true' : 'false'}>
-          {me && (
-            <div className="mi-person" data-on="true">
-              <div className="mi-avatar">{initials(me.firstName, me.lastName)}</div>
-              <div className="mi-person-name">{me.firstName}</div>
-              <div className="mi-person-role">{ROLE.me}</div>
-              <div className="mi-person-action">
-                <div className="mi-check-round"><Check /></div>
-                <div className="mi-person-label">Activate phone key</div>
-                <div className="mi-person-sub">(Included)</div>
-              </div>
-            </div>
-          )}
-
-          {others.map(m => {
-            const on = s.passes.includes(m.id)
-            return (
-              <div key={m.id} className="mi-person" data-on={on ? 'true' : 'false'}>
-                <div className="mi-avatar">{initials(m.firstName, m.lastName)}</div>
-                <div className="mi-person-name">{m.firstName}</div>
-                <div className="mi-person-role">{ROLE[m.role]}</div>
-                <div className="mi-person-action">
-                  <div style={{ display: 'grid', placeItems: 'center' }}>
-                    <input
-                      type="checkbox"
-                      className="mi-switch"
-                      checked={on}
-                      disabled={m.alreadyActive}
-                      onChange={() => toggle(m.id)}
-                      aria-label={`${on ? 'Remove' : 'Add'} phone key for ${m.firstName}`}
-                    />
-                  </div>
-                  <div className="mi-person-label">
-                    {m.alreadyActive ? 'Already active' : 'Add phone key'}
-                  </div>
-                  <div className="mi-person-sub">
-                    {m.alreadyActive ? '(On the roster)' : '(No extra charge)'}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+        {/* ── From the roster. Not editable here, and the screen says why. ── */}
+        <div className="mi-label">From your lease</div>
+        <div className="mi-card">
+          <div className="mi-fact mi-card-p">
+            <span className="mi-fact-k">Primary resident</span>
+            <span className="mi-fact-v">{resident.firstName} {resident.lastName}</span>
+          </div>
+          <div className="mi-fact mi-card-p">
+            <span className="mi-fact-k">Unit</span>
+            <span className="mi-fact-v">{resident.unitNumber}</span>
+          </div>
+          <div className="mi-fact mi-card-p">
+            <span className="mi-fact-k">{isRenewal ? 'Renewal date' : 'Move-in date'}</span>
+            <span className="mi-fact-v">{formatMoveInDate(resident.moveInDate)}</span>
+          </div>
+          <div className="mi-fact mi-card-p">
+            <span className="mi-fact-k">Email</span>
+            <span className="mi-fact-v">{resident.email ?? '—'}</span>
+          </div>
         </div>
+        <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
+          Your name, unit, date and email come from your lease. If any of it is
+          wrong, the leasing office has to change it — we can&apos;t.{' '}
+          <a href={`tel:${property.leasingPhone}`} style={{ color: 'var(--accent-hi)', fontWeight: 600 }}>
+            Call {property.name}
+          </a>
+        </p>
 
-        <div style={{ marginTop: '1.5rem' }}>
+        <label className="mi-opt" data-sel={s.emailConfirmed ? 'true' : 'false'}
+               style={{ marginTop: '0.875rem' }}>
+          <input type="checkbox" checked={s.emailConfirmed}
+                 onChange={e => set('emailConfirmed', e.target.checked)}
+                 style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} />
+          <span className="mi-tick">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"
+                 strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          </span>
+          <div style={{ flex: 1 }}>
+            <div className="mi-opt-title">That email is correct</div>
+            <div className="mi-opt-blurb">
+              Your phone key is issued to this address. A wrong one means a gate
+              that won&apos;t open.
+            </div>
+          </div>
+        </label>
+
+        {/* ── Mobile ─────────────────────────────────────────────────────── */}
+        <div style={{ marginTop: '1.25rem' }}>
           <label className="mi-label" htmlFor="mobile">Your mobile number</label>
           <input
             id="mobile"
@@ -178,38 +145,44 @@ export default function WhoYouAre() {
             onChange={e => set('mobile', format(e.target.value))}
           />
           <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
-            {digits.length > 0 && !ready
+            {digits.length > 0 && digits.length < 10
               ? `${10 - digits.length} more digit${10 - digits.length === 1 ? '' : 's'} to go.`
-              : `Add ${resident.firstName}’s mobile number. We use this to open the
-                 gate and send confirmation. No marketing.`}
+              : 'We use this to open the gate and send your confirmation. No marketing.'}
           </p>
         </div>
 
-        {/* A required field with no alternative is a dead end. Not everyone has
-            a mobile, and some won't give one to a vendor. */}
-        <details style={{ marginTop: '1rem' }}>
-          <summary style={{
-            cursor: 'pointer', fontSize: '0.8125rem', color: 'var(--accent-hi)',
-            fontWeight: 600, listStyle: 'none',
-          }}>
-            I don&apos;t have a mobile number
-          </summary>
-          <div className="mi-hatch" style={{ marginTop: '0.625rem' }}>
-            Your phone key needs a mobile number, but you don&apos;t have to use one.
-            The leasing office can issue a fob or key tag at handover instead — it
-            works at the gate exactly the same way.
-            <div style={{ marginTop: '0.625rem' }}>
-              <a href={`tel:${property.leasingPhone}`}>Call {property.name}</a>
+        {/* ── Who else is on the lease. Display only — passes come later. ── */}
+        {others.length > 0 && (
+          <>
+            <div className="mi-label" style={{ marginTop: '1.5rem' }}>
+              Also on your lease
             </div>
-          </div>
-        </details>
+            <div className="mi-card">
+              {others.map((m, i) => (
+                <div key={m.id} className="mi-fact mi-card-p"
+                     style={{ borderTop: i ? '1px solid var(--line)' : undefined }}>
+                  <span className="mi-fact-k">{m.firstName} {m.lastName}</span>
+                  <span className="mi-fact-v" style={{ fontSize: '0.8125rem',
+                                                       color: 'var(--text-3)' }}>
+                    {m.alreadyActive ? 'Already has access' : ROLE[m.role]}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
+              You&apos;ll choose who gets a phone key in step 3.
+            </p>
+          </>
+        )}
 
         <NotYourUnit property={property} />
       </div>
 
       <StepFooter
-        href={`/${siteSlug}/move-in/vehicles`}
-        label={ready ? 'Next: Add vehicles' : 'Add your mobile number'}
+        href={`/${siteSlug}/move-in/access`}
+        label={ready ? 'Next: Your access'
+          : !s.emailConfirmed ? 'Confirm your email'
+          : 'Add your mobile number'}
         disabled={!ready}
       />
       <StripeMark />

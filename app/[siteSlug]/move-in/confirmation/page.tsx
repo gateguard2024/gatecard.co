@@ -1,25 +1,29 @@
 'use client'
 
-import { useState } from 'react'
-
 import { money } from '@/components/chrome'
 import { StepNav } from '../nav'
-import { useMoveIn } from '../state'
-import { computeFee } from '@/lib/fees'
+import { useMoveIn, addOnPrice } from '../state'
 import { buildReceipt } from '@/lib/receipt'
+import { computeFee } from '@/lib/fees'
 import { formatMoveInDate } from '@/lib/dates'
-import type { ConfirmationItem, ItemState } from '@/lib/types'
+import { PhoneKeyArt, GiftArt } from '@/components/art'
+import type { ItemState } from '@/lib/types'
 
 /**
  * 06 · Confirmation
  *
- * Grouped by STATE — working now / on the way / scheduled — not by product.
- * A resident standing at the gate wants to know what happens if they walk up to
+ * Grouped by STATE — working now / on the way / scheduled — not by product. A
+ * resident standing at the gate wants to know what happens if they walk up to
  * it right now; a product-grouped list makes them work that out themselves.
  *
- * The two money rails are shown in separate blocks and never interleaved.
- * Add to Wallet is the only button, because it is the only thing left that
- * changes the resident's day.
+ * ── About the phone key ──────────────────────────────────────────────────────
+ * There is no "Add to Apple Wallet" button here, and there cannot be one yet.
+ * Brivo exposes no wallet-provisioning API to integrators: the documented
+ * journey is an emailed Mobile Pass invite, the Brivo Mobile Pass app, and the
+ * resident adding the pass to their wallet from inside that app. Promising a
+ * one-tap wallet add on this screen would be a promise the platform can't keep,
+ * so the screen tells them exactly what will land in their inbox instead. See
+ * docs/BRIVO-API.md.
  */
 
 const GROUPS: { state: ItemState; label: string }[] = [
@@ -28,38 +32,34 @@ const GROUPS: { state: ItemState; label: string }[] = [
   { state: 'scheduled',   label: 'Scheduled' },
 ]
 
+const SUPPORT_TEL = '+18444694283'
+const SUPPORT_LABEL = '844-4MY-GATE'
+
 export default function Confirmation() {
   const { ctx, s } = useMoveIn()
-  const siteSlug = ctx.property.slug
+  const { property, resident } = ctx
 
-  const [walletAdded, setWalletAdded] = useState(false)
-  const fee = computeFee({
-    fee: ctx.property.parkingFee,
-    concession: ctx.resident.concession,
-    termMonths: ctx.resident.leaseTermMonths,
-  })
-
-  // One document covering everything, with each line labelled by how it is
-  // paid. One receipt, not one charge — the lease-bound fee still never
-  // touches a card.
   const receipt = buildReceipt({
     ctx,
-    keys: s.keys,
+    members: s.members,
     serviceIds: s.services,
     requestedIds: s.requested,
+    promo: s.promo,
   })
 
-  const holders = ctx.resident.household.filter(m => s.passes.includes(m.id))
+  const fee = computeFee({ fee: property.parkingFee, promo: s.promo })
+  const holders = resident.household.filter(m => s.members[m.id]?.pass)
 
-  const { firstName, lastName, unitNumber } = ctx.resident
   const directoryName =
-    s.directoryFormat === 'full' ? `${firstName} ${lastName}`
-    : s.directoryFormat === 'unit_only' ? `Unit ${unitNumber}`
-    : `${firstName} ${lastName.charAt(0).toUpperCase()}.`
+    property.directory.format === 'full'
+      ? `${resident.firstName} ${resident.lastName}`
+      : property.directory.format === 'unit_only'
+        ? `Unit ${resident.unitNumber}`
+        : `${resident.firstName} ${resident.lastName.charAt(0).toUpperCase()}.`
 
-  const items: ConfirmationItem[] = [
-    // One row per person, because a pass is granted to a person and the
-    // resident needs to see that they provisioned access for someone else.
+  const ADDON: Record<string, string> = { fob: 'Key fob', keytag: 'Key tag' }
+
+  const items = [
     ...holders.map(m => ({
       id: `pass-${m.id}`,
       label: `${m.firstName}’s phone key`,
@@ -67,42 +67,37 @@ export default function Confirmation() {
         ? 'Already on the roster — unchanged'
         : `Gate and building door, from ${m.role === 'me' ? 'your' : 'their'} phone`,
       state: 'working_now' as ItemState,
-      rail: 'included' as const,
     })),
     ...holders.flatMap(m => {
-      const v = s.vehicles[m.id]
-      if (!v?.plate.trim()) return []
+      const sel = s.members[m.id]
+      if (sel.noVehicle || !sel.vehicle?.plate.trim()) return []
+      const v = sel.vehicle
       return [{
         id: `veh-${m.id}`,
         label: `${m.firstName}’s vehicle`,
         detail: [`${v.plate} · ${v.state}`, [v.make, v.model].filter(Boolean).join(' ')]
           .filter(Boolean).join(' · '),
         state: 'working_now' as ItemState,
-        rail: 'included' as const,
-      }]
-    }),
-    ...(['fob', 'keytag'] as const).flatMap(k => {
-      const qty = s.keys[k]
-      if (qty <= 0) return []
-      const c = ctx.credentials.find(x => x.kind === k)
-      if (!c) return []
-      return [{
-        id: `cred-${k}`,
-        label: qty > 1 ? `${c.label} × ${qty}` : c.label,
-        detail: 'Ships in 3–5 days · activates on first tap',
-        state: 'on_the_way' as ItemState,
-        rail: 'card' as const,
       }]
     }),
     {
       id: 'directory',
       label: s.directoryListed ? 'Listed at the callbox' : 'Not listed at the callbox',
       detail: s.directoryListed
-        ? `Guests see “${directoryName}”`
+        ? `Guests see “${directoryName}” and it rings ${s.directoryPhone || s.mobile}`
         : 'Guests can’t look you up — let them in from your phone',
       state: 'working_now' as ItemState,
-      rail: 'included' as const,
     },
+    ...holders.flatMap(m => {
+      const sel = s.members[m.id]
+      if (sel.addOn === 'none') return []
+      return [{
+        id: `addon-${m.id}`,
+        label: `${ADDON[sel.addOn]} — ${m.firstName}`,
+        detail: 'Ships in 3–5 days · activates on its first tap at the gate',
+        state: 'on_the_way' as ItemState,
+      }]
+    }),
     ...s.requested.map(id => {
       const o = ctx.services.find(x => x.id === id)!
       return {
@@ -112,7 +107,6 @@ export default function Confirmation() {
           ? 'Someone will call to size it up — nothing charged yet'
           : `${o.provider} · live for your move-in date`,
         state: 'scheduled' as ItemState,
-        rail: 'included' as const,
       }
     }),
     ...s.services.map(id => {
@@ -120,35 +114,48 @@ export default function Confirmation() {
       return {
         id: `svc-${id}`,
         label: o.name,
-        detail: `${o.provider} · starts on your move-in date`,
+        detail: `${o.provider} · starts ${formatMoveInDate(resident.moveInDate)}`,
         state: 'scheduled' as ItemState,
-        rail: 'card' as const,
       }
     }),
   ]
+
+  const shipping = holders.filter(m => s.members[m.id].addOn !== 'none')
 
   return (
     <>
       <StepNav index={5} />
       <div className="mi-body">
-        <h1 className="mi-h1">You&apos;re in, {ctx.resident.firstName}.</h1>
+        <h1 className="mi-h1">You&apos;re all set, {resident.firstName}.</h1>
         <p className="mi-lede">
-          Unit {ctx.resident.unitNumber}. Walk up to the gate and your phone will open it.
+          Unit {resident.unitNumber}. Walk up to the gate and your phone will
+          open it.
         </p>
 
-        <button
-          className="mi-btn"
-          style={{ marginBottom: '0.5rem' }}
-          onClick={() => setWalletAdded(true)}
-          disabled={walletAdded}
-        >
-          {walletAdded ? '\u2713  Added to Apple Wallet' : 'Add your key to Apple Wallet'}
-        </button>
-        <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', textAlign: 'center', margin: 0 }}>
-          {walletAdded
-            ? 'Hold your phone near the reader — no need to open anything.'
-            : 'Then it works from the lock screen, without opening an app.'}
-        </p>
+        {receipt.dueTodayCents > 0 && (
+          <div className="mi-free">
+            <span aria-hidden>✓</span>
+            Payment of {money(receipt.dueTodayCents)} received. A receipt is on
+            its way to {resident.email}.
+          </div>
+        )}
+
+        {/* ── The phone key. Honest about how it actually arrives. ──────── */}
+        <div className="mi-prod" data-on="true">
+          <div className="mi-art-inline"><PhoneKeyArt size={64} /></div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="mi-prod-title">Set up your phone key</div>
+            <p className="mi-opt-blurb" style={{ margin: '0.1875rem 0 0' }}>
+              Check <b>{resident.email}</b> for your mobile pass invitation. Open
+              it on your phone, install the app it points you to, and your key is
+              live — including on your lock screen.
+            </p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
+              It usually lands within a few minutes. If it hasn&apos;t arrived in
+              an hour, call us and we&apos;ll resend it.
+            </p>
+          </div>
+        </div>
 
         {GROUPS.map(g => {
           const rows = items.filter(i => i.state === g.state)
@@ -172,14 +179,21 @@ export default function Confirmation() {
           )
         })}
 
-        <div className="mi-state-h">Your move-in summary</div>
+        {shipping.length > 0 && (
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginTop: '0.75rem' }}>
+            Physical keys are made up and posted to Unit {resident.unitNumber}.
+            They arrive blank and inert — the first tap at the gate is what
+            activates them, so one lost in the post is not a key to the community.
+          </p>
+        )}
 
+        {/* ── What it cost ──────────────────────────────────────────────── */}
+        <div className="mi-state-h">Your summary</div>
         <div className="mi-card">
           {receipt.lines.map((l, i) => (
             <div key={l.id} className="mi-card-p"
                  style={{ borderTop: i ? '1px solid var(--line)' : 'none',
-                          paddingTop: i ? '0.75rem' : undefined,
-                          paddingBottom: '0.75rem' }}>
+                          paddingTop: '0.8125rem', paddingBottom: '0.8125rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}>
                 <span className="mi-opt-title" style={{
                   fontSize: '0.875rem',
@@ -187,87 +201,86 @@ export default function Confirmation() {
                 }}>
                   {l.label}
                 </span>
-                {/* Amounts only. A long note here collided with the label and
-                    broke the row — explanations belong on the detail line. */}
                 <span className="mi-fact-v" style={{
                   whiteSpace: 'nowrap',
-                  color: l.amountCents < 0 ? 'var(--ok)'
-                       : l.amountCents === 0 ? 'var(--text-3)' : undefined,
+                  color: l.amountCents < 0 ? 'var(--ok)' : undefined,
                 }}>
-                  {l.amountCents === 0
-                    ? 'No charge'
-                    : `${l.amountCents < 0 ? '−' : ''}${money(Math.abs(l.amountCents))}${
-                        l.cadence === 'monthly' ? '/mo' : ''}`}
+                  {`${l.amountCents < 0 ? '−' : ''}${money(Math.abs(l.amountCents))}${
+                    l.cadence === 'monthly' ? '/mo' : ''}`}
                 </span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between',
-                            gap: '0.75rem', marginTop: '0.125rem' }}>
-                <span className="mi-opt-blurb" style={{ fontSize: '0.75rem' }}>
-                  {l.note ?? l.detail}
-                </span>
-                {/* The rail, on every line. This is what makes one document
-                    honest without pretending it is one payment. */}
-                <span style={{
-                  fontSize: '0.625rem', letterSpacing: '0.06em', textTransform: 'uppercase',
-                  color: 'var(--text-3)', whiteSpace: 'nowrap', fontWeight: 650,
-                }}>
-                  {l.rail === 'lease' ? 'With your lease' : 'Your card'}
-                </span>
-              </div>
+              {l.detail && (
+                <div className="mi-opt-blurb" style={{ fontSize: '0.75rem' }}>{l.detail}</div>
+              )}
             </div>
           ))}
-
           <div className="mi-card-p" style={{
             borderTop: '1px solid var(--line-2)', background: 'var(--surface-sunk)',
             borderRadius: '0 0 var(--r-card) var(--r-card)',
           }}>
-            {receipt.cardTodayCents > 0 && (
+            <div className="mi-fact" style={{ padding: '0.25rem 0', border: 'none' }}>
+              <span className="mi-fact-k">Paid today</span>
+              <span className="mi-fact-v">{money(receipt.dueTodayCents)}</span>
+            </div>
+            {receipt.monthlyCents > 0 && (
               <div className="mi-fact" style={{ padding: '0.25rem 0', border: 'none' }}>
-                <span className="mi-fact-k">On your card today</span>
-                <span className="mi-fact-v">{money(receipt.cardTodayCents)}</span>
+                <span className="mi-fact-k">Monthly from move-in</span>
+                <span className="mi-fact-v">{money(receipt.monthlyCents)}/mo</span>
               </div>
             )}
-            {receipt.cardMonthlyCents > 0 && (
-              <div className="mi-fact" style={{ padding: '0.25rem 0', border: 'none' }}>
-                <span className="mi-fact-k">Monthly, on your card</span>
-                <span className="mi-fact-v">{money(receipt.cardMonthlyCents)}/mo</span>
-              </div>
+            {fee && (
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.625rem 0 0' }}>
+                The {property.parkingFee!.label.toLowerCase()} was charged once for
+                your unit, not per person. Nothing here can affect whether your key
+                works.
+              </p>
             )}
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.625rem 0 0' }}>
-              The parking and amenity fee is charged once for your unit, not per
-              person. Nothing here can affect whether your key works — your phone
-              pass is live either way.
-            </p>
           </div>
         </div>
 
-        {ctx.resident.storeCode && (
-          <div className="mi-card mi-card-p" style={{ marginTop: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span className="mi-opt-title" style={{ flex: 1 }}>Community store</span>
-              <span className="mi-badge">{ctx.resident.storeCode.percentOff}% off</span>
+        {/* ── Store ─────────────────────────────────────────────────────── */}
+        {resident.storeCode && (
+          <div className="mi-prod" style={{ marginTop: '1.25rem' }}>
+            <div className="mi-art-inline"><GiftArt size={64} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="mi-prod-title">{property.name} community store</div>
+              <p className="mi-opt-blurb" style={{ margin: '0.1875rem 0 0' }}>
+                {resident.storeCode.percentOff}% off as a welcome — doormats,
+                plants, supplies and spare tags.
+              </p>
+              <div className="mi-code">
+                {resident.storeCode.code}
+                <span>{resident.storeCode.percentOff}% off</span>
+              </div>
+              <a href={resident.storeCode.storeUrl} target="_blank" rel="noreferrer"
+                 className="mi-btn" style={{ marginTop: '0.5rem' }}>
+                Open community store
+              </a>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
+                Yours alone, one use, expires{' '}
+                {formatMoveInDate(resident.storeCode.expiresOn)}. It&apos;s in your
+                email too.
+              </p>
             </div>
-            <div style={{
-              marginTop: '0.625rem', padding: '0.625rem',
-              background: 'var(--surface-sunk)', borderRadius: 'var(--r-btn)',
-              border: '1px dashed var(--line-2)', textAlign: 'center',
-              fontFamily: 'ui-monospace, SFMono-Regular, monospace',
-              fontSize: '1rem', fontWeight: 700, letterSpacing: '0.08em',
-            }}>
-              {ctx.resident.storeCode.code}
-            </div>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
-              One use, expires {formatMoveInDate(ctx.resident.storeCode.expiresOn)}. It&apos;s
-              in your email too.
-            </p>
           </div>
         )}
 
-        <div className="mi-hatch" style={{ marginTop: '1.5rem' }}>
-          Questions about your unit, your lease or your parking?{' '}
-          <a href={`tel:${ctx.property.leasingPhone}`}>Call the {ctx.property.name} office</a>
+        {/* ── Support. Ours for access, theirs for the lease. ───────────── */}
+        <div className="mi-state-h">If something isn&apos;t working</div>
+        <div className="mi-card mi-card-p">
+          <div className="mi-opt-title">Gate, keys and access</div>
+          <p className="mi-opt-blurb" style={{ margin: '0.1875rem 0 0.625rem' }}>
+            That&apos;s us, any time. Your leasing office isn&apos;t the help desk
+            for this.
+          </p>
+          <a href={`tel:${SUPPORT_TEL}`} className="mi-btn">Call {SUPPORT_LABEL}</a>
+        </div>
+
+        <div className="mi-hatch" style={{ marginTop: '0.875rem' }}>
+          Questions about your unit, your lease or your parking space?{' '}
+          <a href={`tel:${property.leasingPhone}`}>Call the {property.name} office</a>
           <div style={{ marginTop: 4, fontSize: '0.75rem', color: 'var(--text-3)' }}>
-            {ctx.property.leasingHours}
+            {property.leasingHours}
           </div>
         </div>
       </div>

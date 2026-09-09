@@ -128,9 +128,8 @@ export async function fetchMoveInContext(
       directory: {
         mode: (site.directory_mode ?? 'optional') as DirectoryMode,
         defaultListed: site.directory_default_listed ?? true,
-        formats: (site.directory_formats?.length
-          ? site.directory_formats
-          : ['last_initial']) as DirectoryNameFormat[],
+        // The name format is the property's decision, not the resident's.
+        format: (site.directory_formats?.[0] ?? 'last_initial') as DirectoryNameFormat,
         note: site.directory_note ?? null,
       },
       parkingFee: site.parking_fee_cents
@@ -177,14 +176,6 @@ export async function fetchMoveInContext(
             percentOff: Number(storeCode.data.percent_off),
             expiresOn: storeCode.data.expires_at,
             storeUrl: site.store_url,
-          }
-        : null,
-      concession: concession.data
-        ? {
-            coversCents: concession.data.covers_cents,
-            label: concession.data.label ?? `Covered by ${site.name}`,
-            months: concession.data.months,
-            endsOn: concession.data.ends_on,
           }
         : null,
     },
@@ -236,5 +227,17 @@ export async function fetchMoveInContext(
       fulfilment: p.fulfilment as StoreProduct['fulfilment'],
       inStock: p.in_stock,
     })),
+
+    // ── Not yet wired ────────────────────────────────────────────────────
+    // Concession codes are deliberately NOT shipped to the client. The browser
+    // posts a code and receives a verdict; handing it the property's unredeemed
+    // block would let anyone read every code the property paid for. The empty
+    // array is correct here and the validation endpoint is the next piece.
+    promoCodes: [],
+
+    // Payment routing is server-only and never reaches a resident's browser.
+    // Tables pending; an empty share list makes allocate() throw rather than
+    // silently paying one party everything.
+    split: { siteSlug: slug, shares: [] },
   }
 }

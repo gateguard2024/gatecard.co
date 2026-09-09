@@ -36,7 +36,6 @@ const ART: Record<ServiceOffer['category'], (p: { size: number }) => React.JSX.E
 export default function Services() {
   const { ctx, s, set } = useMoveIn()
   const siteSlug = ctx.property.slug
-  const { storeCode } = ctx.resident
 
   const offers = ctx.services.filter(o => o.mode !== 'unavailable')
 
@@ -72,11 +71,14 @@ export default function Services() {
     <>
       <StepNav index={3} />
       <div className="mi-body">
-        <h1 className="mi-h1">Let&apos;s upgrade your home services</h1>
+        <h1 className="mi-h1">Optional services</h1>
+        <p className="mi-lede">
+          None of this is required. Pick only what you want.
+        </p>
 
         <div className="mi-free">
           <span aria-hidden>✓</span>
-          These items are optional. Pick only what you want.
+          Your access is already set — nothing here can hold it up.
         </div>
 
         {offers.map(o => {
@@ -134,32 +136,6 @@ export default function Services() {
           )
         })}
 
-        {/* The store is a place to go, not a line item — the code is issued to
-            this resident and goes live when setup completes. */}
-        {storeCode && (
-          <div className="mi-prod" style={{ marginTop: '0.625rem' }}>
-            <div className="mi-art-inline"><GiftArt size={64} /></div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="mi-prod-title">{ctx.property.name} community store</div>
-              <p className="mi-opt-blurb" style={{ margin: '0.1875rem 0 0' }}>
-                {storeCode.percentOff}% off everything — doormats, plants, supplies
-                and more.
-              </p>
-              <div className="mi-code" aria-label="Your welcome code">
-                {storeCode.code}
-                <span>{storeCode.percentOff}% off</span>
-              </div>
-              <a href={storeCode.storeUrl} target="_blank" rel="noreferrer"
-                 className="mi-btn" style={{ marginTop: '0.5rem' }}>
-                Open community store
-              </a>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
-                Yours alone, one use. It goes live the moment you finish setup.
-              </p>
-            </div>
-          </div>
-        )}
-
         <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginTop: '1.25rem' }}>
           Anything you skip stays available in your resident app.
         </p>
@@ -168,8 +144,8 @@ export default function Services() {
       <StepFooter
         href={`/${siteSlug}/move-in/review`}
         label={monthly > 0
-          ? `Next: Review and pay · ${money(monthly)}/mo added`
-          : 'Next: Review and pay'}
+          ? `Next: Review and payment · ${money(monthly)}/mo added`
+          : 'Next: Review and payment'}
       />
       <StripeMark />
     </>

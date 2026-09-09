@@ -35,13 +35,13 @@ const eastPonds: MoveInContext = {
     supportEmail: 'leasing@eastponds.example',
     parkingFee: {
       label: 'Parking & amenity fee',
-      amountCents: 12500,
+      amountCents: 15000,
       covers: 'Gate access, the resident lot and community amenities',
     },
     directory: {
       mode: 'optional',
       defaultListed: true,
-      formats: ['last_initial', 'full', 'unit_only'],
+      format: 'last_initial',
       note: 'Couriers use the callbox to reach you about packages.',
     },
   },
@@ -57,14 +57,6 @@ const eastPonds: MoveInContext = {
     ],
     leaseTermMonths: 12,
     leaseEndDate: '2027-09-04',
-    // Partial — the property comps $50 of the $125, the resident pays the
-    // rest at sign-up. The case most likely to produce a confused call.
-    concession: {
-      coversCents: 5000,
-      label: 'Covered by East Ponds',
-      months: null,
-      endsOn: null,
-    },
    storeCode: {
       code: 'EASTPO-K7M4QX',
       percentOff: 15,
@@ -76,10 +68,10 @@ const eastPonds: MoveInContext = {
     { kind: 'phone', label: 'Phone key', priceCents: 0, isDefault: true, isPhysical: false,
       blurb: 'Open the gate and your building door from your phone. Works the moment you finish here.',
       deliveryNote: null },
-    { kind: 'fob', label: 'Key fob', priceCents: 1500, isDefault: false, isPhysical: true,
+    { kind: 'fob', label: 'Key fob', priceCents: 7500, isDefault: false, isPhysical: true,
       blurb: 'A physical fob for the gate reader. Handy for guests in your household or a spare in the car.',
       deliveryNote: 'Ships in 3–5 days. Tap it at the gate once and it activates itself.' },
-    { kind: 'keytag', label: 'Key tag', priceCents: 1000, isDefault: false, isPhysical: true,
+    { kind: 'keytag', label: 'Key tag', priceCents: 4500, isDefault: false, isPhysical: true,
       blurb: 'Same thing, smaller — rides on your keyring.',
       deliveryNote: 'Ships in 3–5 days. Tap it at the gate once and it activates itself.' },
   ],
@@ -105,9 +97,9 @@ const eastPonds: MoveInContext = {
   ],
   store: [
     { id: 'fob-extra', name: 'Extra key fob', blurb: 'A spare for the household.',
-      priceCents: 1500, imageEmoji: '🔑', fulfilment: 'credential', inStock: true },
+      priceCents: 7500, imageEmoji: '🔑', fulfilment: 'credential', inStock: true },
     { id: 'keytag-extra', name: 'Extra key tag', blurb: 'Rides on a keyring.',
-      priceCents: 1000, imageEmoji: '🏷️', fulfilment: 'credential', inStock: true },
+      priceCents: 4500, imageEmoji: '🏷️', fulfilment: 'credential', inStock: true },
     { id: 'doormat', name: 'East Ponds doormat', blurb: 'Coir, 18×30. Because unit 214 should look like it.',
       priceCents: 3400, imageEmoji: '🚪', fulfilment: 'merch', inStock: true },
     { id: 'tumbler', name: 'Insulated tumbler', blurb: '20 oz, keeps coffee hot through a Monday.',
@@ -117,6 +109,26 @@ const eastPonds: MoveInContext = {
     { id: 'plant', name: 'Welcome plant', blurb: 'A pothos. Genuinely hard to kill.',
       priceCents: 2200, imageEmoji: '🪴', fulfilment: 'merch', inStock: true },
   ],
+  // The property bought a block of 10 at $120 each. One code shows the happy
+  // path; the others exist so the refusal copy can be seen without inventing
+  // failure states at demo time.
+  promoCodes: [
+    { code: 'EP-4K7M-QX28', blockId: 'blk-ep-001', costCents: 12000,
+      coversCents: 15000, status: 'unused', expiresOn: null },
+    { code: 'EP-9T2B-HR54', blockId: 'blk-ep-001', costCents: 12000,
+      coversCents: 15000, status: 'redeemed', expiresOn: null },
+    { code: 'EP-1D6N-VW90', blockId: 'blk-ep-000', costCents: 12000,
+      coversCents: 15000, status: 'unused', expiresOn: '2026-06-30' },
+  ],
+  split: {
+    siteSlug: 'east-ponds',
+    shares: [
+      { party: 'gateguard', bps: 5500, stripeAccountId: null, label: 'Gate Guard' },
+      { party: 'hello_package', bps: 2000, stripeAccountId: null, label: 'Hello Package' },
+      { party: 'sales_rep', bps: 1000, stripeAccountId: null, label: 'Sales rep — [name]' },
+      { party: 'servicing_dealer', bps: 1500, stripeAccountId: null, label: 'Servicing dealer — [name]' },
+    ],
+  },
 }
 
 /** No bulk internet deal here, so internet and TV are both real line items. */
@@ -141,7 +153,7 @@ const campCreek: MoveInContext = {
     directory: {
       mode: 'required',
       defaultListed: true,
-      formats: ['last_initial'],
+      format: 'last_initial',
       note: 'The gate is unstaffed, so couriers and guests rely on the directory.',
     },
   },
@@ -157,7 +169,6 @@ const campCreek: MoveInContext = {
     // A nine-month lease. Short terms are common and the fee has to behave.
     leaseTermMonths: 9,
     leaseEndDate: '2027-06-11',
-    concession: null,
    storeCode: {
       code: 'CAMPCR-T2R9BW',
       percentOff: 15,
@@ -169,7 +180,7 @@ const campCreek: MoveInContext = {
     { kind: 'phone', label: 'Phone key', priceCents: 0, isDefault: true, isPhysical: false,
       blurb: 'Your phone opens the gate and your building door. Live as soon as you finish here.',
       deliveryNote: null },
-    { kind: 'fob', label: 'Key fob', priceCents: 1200, isDefault: false, isPhysical: true,
+    { kind: 'fob', label: 'Key fob', priceCents: 7500, isDefault: false, isPhysical: true,
       blurb: 'A physical fob for the gate reader.',
       deliveryNote: 'Ships in 3–5 days. Activates on its first tap at the gate.' },
   ],
@@ -191,10 +202,21 @@ const campCreek: MoveInContext = {
   // Credential items only — this property runs no merch programme.
   store: [
     { id: 'fob-extra', name: 'Extra key fob', blurb: 'A spare for the household.',
-      priceCents: 1200, imageEmoji: '🔑', fulfilment: 'credential', inStock: true },
+      priceCents: 7500, imageEmoji: '🔑', fulfilment: 'credential', inStock: true },
     { id: 'keytag-extra', name: 'Key tag', blurb: 'Rides on a keyring.',
-      priceCents: 900, imageEmoji: '🏷️', fulfilment: 'credential', inStock: true },
+      priceCents: 4500, imageEmoji: '🏷️', fulfilment: 'credential', inStock: true },
   ],
+  // This property runs no concession programme, so the code box should say so
+  // rather than accepting input that can never succeed.
+  promoCodes: [],
+  split: {
+    siteSlug: 'camp-creek',
+    shares: [
+      { party: 'gateguard', bps: 7000, stripeAccountId: null, label: 'Gate Guard' },
+      { party: 'hello_package', bps: 2000, stripeAccountId: null, label: 'Hello Package' },
+      { party: 'servicing_dealer', bps: 1000, stripeAccountId: null, label: 'Servicing dealer — [name]' },
+    ],
+  },
 }
 
 /** Nothing is included — the resident has to actively choose a paid tier. */
@@ -211,7 +233,7 @@ const lyvBuckhead: MoveInContext = {
     supportEmail: 'concierge@lyvbuckhead.example',
     parkingFee: {
       label: 'Parking & amenity fee',
-      amountCents: 12500,
+      amountCents: 19500,
       covers: 'Garage access, the lobby and building amenities',
     },
     // A staffed lobby means nobody depends on the directory to reach a
@@ -219,7 +241,7 @@ const lyvBuckhead: MoveInContext = {
     directory: {
       mode: 'optional',
       defaultListed: false,
-      formats: ['unit_only', 'last_initial', 'full'],
+      format: 'unit_only',
       note: 'The concierge announces guests, so the directory is optional here.',
     },
   },
@@ -238,13 +260,6 @@ const lyvBuckhead: MoveInContext = {
     ],
     leaseTermMonths: 12,
     leaseEndDate: '2027-08-31',
-    // Fully comped — a $125 fee the resident never sees a charge for.
-    concession: {
-      coversCents: 12500,
-      label: 'Covered by LYV Buckhead',
-      months: null,
-      endsOn: null,
-    },
    storeCode: {
       code: 'LYVBUC-H5N8PZ',
       percentOff: 15,
@@ -256,10 +271,10 @@ const lyvBuckhead: MoveInContext = {
     { kind: 'phone', label: 'Phone key', priceCents: 0, isDefault: true, isPhysical: false,
       blurb: 'Opens the garage, the lobby, your elevator bank and your door.',
       deliveryNote: null },
-    { kind: 'fob', label: 'Key fob', priceCents: 2000, isDefault: false, isPhysical: true,
+    { kind: 'fob', label: 'Key fob', priceCents: 7500, isDefault: false, isPhysical: true,
       blurb: 'For guests in your household, or a spare in the car.',
       deliveryNote: 'Ships in 3–5 days. Activates on its first tap.' },
-    { kind: 'keytag', label: 'Key tag', priceCents: 1500, isDefault: false, isPhysical: true,
+    { kind: 'keytag', label: 'Key tag', priceCents: 4500, isDefault: false, isPhysical: true,
       blurb: 'Smaller, rides on a keyring.',
       deliveryNote: 'Ships in 3–5 days. Activates on its first tap.' },
   ],
@@ -280,14 +295,29 @@ const lyvBuckhead: MoveInContext = {
   ],
   store: [
     { id: 'fob-extra', name: 'Extra key fob', blurb: 'A spare for the household.',
-      priceCents: 2000, imageEmoji: '🔑', fulfilment: 'credential', inStock: true },
+      priceCents: 7500, imageEmoji: '🔑', fulfilment: 'credential', inStock: true },
     { id: 'keytag-extra', name: 'Key tag', blurb: 'Rides on a keyring.',
-      priceCents: 1500, imageEmoji: '🏷️', fulfilment: 'credential', inStock: true },
+      priceCents: 4500, imageEmoji: '🏷️', fulfilment: 'credential', inStock: true },
     { id: 'wine', name: 'Wine fridge stocker', blurb: 'Six bottles, chosen by the concierge.',
       priceCents: 12000, imageEmoji: '🍷', fulfilment: 'merch', inStock: true },
     { id: 'plant', name: 'Welcome plant', blurb: 'A fiddle-leaf fig. Less forgiving than a pothos.',
       priceCents: 4800, imageEmoji: '🪴', fulfilment: 'merch', inStock: true },
   ],
+  promoCodes: [
+    { code: 'LYV-H5N8-PZ31', blockId: 'blk-lyv-004', costCents: 12000,
+      coversCents: 19500, status: 'unused', expiresOn: null },
+  ],
+  // Sold by a rep and serviced by a dealer we don't own — the case that proves
+  // routing is site configuration and not a platform constant.
+  split: {
+    siteSlug: 'lyv-buckhead',
+    shares: [
+      { party: 'gateguard', bps: 4000, stripeAccountId: null, label: 'Gate Guard' },
+      { party: 'hello_package', bps: 2000, stripeAccountId: null, label: 'Hello Package' },
+      { party: 'sales_rep', bps: 1500, stripeAccountId: null, label: 'Sales rep — [name]' },
+      { party: 'servicing_dealer', bps: 2500, stripeAccountId: null, label: 'Servicing dealer — [name]' },
+    ],
+  },
 }
 
 export const PROPERTIES: Record<string, MoveInContext> = {

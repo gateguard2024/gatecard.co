@@ -24,8 +24,13 @@ export interface DirectoryPolicy {
   mode: DirectoryMode
   /** Which way the toggle starts when mode is 'optional'. */
   defaultListed: boolean
-  /** Formats this property allows. Order is the order shown. */
-  formats: DirectoryNameFormat[]
+  /**
+   * How the name appears. A PROPERTY setting, not a resident one — the roster
+   * is the property's record and a resident renaming themselves at the callbox
+   * defeats the point of it. The resident controls two things: whether they
+   * appear at all, and which number rings.
+   */
+  format: DirectoryNameFormat
   /** Why it matters here — packages, gate staff, a guest at 11pm. */
   note: string | null
 }
@@ -76,8 +81,6 @@ export interface ResidentIdentity {
   leaseTermMonths: number | null
   leaseEndDate: string | null
 
-  /** Granted by the property. Null when the resident pays the full fee. */
-  concession: Concession | null
 
   /** The community-store welcome code. Null where the property has no store. */
   storeCode: StoreCode | null
@@ -94,6 +97,24 @@ export interface HouseholdMember {
   avatarUrl: string | null
   /** True where the roster already shows them with access. */
   alreadyActive: boolean
+}
+
+/**
+ * A physical backup credential, chosen per person.
+ *
+ * Either/or, one per person with a pass: a credential is enrolled against a
+ * named human in Brivo, and a second one in the same pocket is a spare key to
+ * the community that belongs to nobody in particular.
+ */
+export type AddOnKind = 'none' | 'fob' | 'keytag'
+
+/** What one person on the lease ends up with. */
+export interface MemberSelection {
+  pass: boolean
+  addOn: AddOnKind
+  /** Null where they told us they have no vehicle. */
+  vehicle: VehicleDraft | null
+  noVehicle: boolean
 }
 
 export interface StoreCode {
@@ -139,34 +160,46 @@ export interface CredentialOption {
  */
 export interface ParkingFee {
   label: string
-  /** One-time, per unit, due at sign-up. */
+  /**
+   * One-time, per unit, due at sign-up. Set per property — this is not a
+   * platform constant, and the admin surface edits it per site.
+   */
   amountCents: number
   /** What it covers, in the property's words. */
   covers: string
 }
 
 /**
- * A concession against the parking and amenity fee.
+ * A concession pass block.
  *
- * The property comps a resident's fee — all of it or part — as a leasing
- * concession, and buys them in blocks (see site_concession_passes). The
- * resident never buys one; it is granted to them.
+ * The property buys passes in blocks — 5 or 10 at a discounted unit price —
+ * and receives promo codes to hand out. A resident redeems one at checkout and
+ * the fee goes to zero; the property has already paid.
  *
- * Shown on the fee card as a deduction with the property's name on it, because
- * a concession the resident can't see is one they can't be grateful for, and
- * one nobody can query when it lapses.
+ * This replaced "the property comps N dollars of the fee". The difference
+ * matters: a block is inventory the property bought and can run out of, and
+ * every code has to be traceable to the block it came from, or nobody can
+ * answer why a resident's code was refused.
  */
-export interface Concession {
-  /** Cents of the one-time fee covered by the property. */
+export interface PromoCode {
+  code: string
+  /** Which purchased block it came from. */
+  blockId: string
+  /** What the property paid for this pass. Never shown to the resident. */
+  costCents: number
+  /** Cents of the fee it covers. Equals the full fee for a concession pass. */
   coversCents: number
-  /** Who granted it, in the resident's words: "Covered by East Ponds". */
-  label: string
-  /**
-   * How long it runs. Null means for the whole lease term — worth stating,
-   * because a concession that quietly expires mid-lease generates a call.
-   */
-  months: number | null
-  endsOn: string | null
+  status: 'unused' | 'redeemed' | 'void' | 'expired'
+  expiresOn: string | null
+}
+
+/** The outcome of typing a code into the box. */
+export interface PromoResult {
+  ok: boolean
+  code: string
+  coversCents: number
+  /** Why it was refused, in the resident's words. */
+  reason: string | null
 }
 
 export interface ParkingTier {
@@ -262,4 +295,50 @@ export interface MoveInContext {
   parkingTiers: ParkingTier[]
   services: ServiceOffer[]
   store: StoreProduct[]
+  /**
+   * Concession codes this property has issued. Server-side in production —
+   * the client never receives the full list, it posts a code and gets a
+   * verdict. Held here so the UX phase can run on mock data.
+   */
+  promoCodes: PromoCode[]
+  /** Where this site's money goes. Never rendered to a resident. */
+  split: SiteSplit
+}
+
+// ── Money routing ────────────────────────────────────────────────────────────
+
+/**
+ * Who gets paid on a transaction at this site.
+ *
+ * Four parties, and the mix differs site to site: a community sold by one rep
+ * and serviced by another dealer splits differently from one we sold and
+ * service ourselves. So this is site configuration, never a constant.
+ *
+ * The property is deliberately absent. The property receives no share of the
+ * parking and amenity fee or of optional resident services — see the Property
+ * Partnership Agreement.
+ *
+ * Shares are basis points so a three-way split of an odd amount is exact;
+ * see lib/split.ts for the allocation, which is where rounding is decided
+ * rather than left to whoever renders it.
+ */
+export type SplitParty =
+  | 'gateguard'
+  | 'hello_package'
+  | 'sales_rep'
+  | 'servicing_dealer'
+
+export interface SplitShare {
+  party: SplitParty
+  /** Basis points of the net amount. All shares for a site must total 10000. */
+  bps: number
+  /** Stripe connected account, where one exists yet. */
+  stripeAccountId: string | null
+  /** Who this is, for the ledger and for a human reading a payout report. */
+  label: string
+}
+
+export interface SiteSplit {
+  siteSlug: string
+  shares: SplitShare[]
 }
