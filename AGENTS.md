@@ -269,18 +269,49 @@ The portal is one step in a loop that mostly runs without anyone opening a brows
 4. **The resident completes the five screens** and pays.
 5. **We email the property manager the list every Monday and Friday.**
 
-### The compliance list is the enforcement mechanism — not the gate
+### Issuance is gated on payment. Revocation is not on the table.
+
+These are two different things and the distinction is the whole design:
+
+| | Allowed | Why |
+|---|---|---|
+| **Withholding a credential that was never issued**, until the fee is paid | **Yes** | Ordinary commerce. Nothing is taken away; the resident has not bought it yet. This is the model. |
+| **Revoking a credential already in a resident's hand** for later non-payment | **Never** | That is a self-help lockout. Illegal in most states, and the landlord's remedy, not a vendor's. |
+
+**Mobile passes are not issued until the parking and amenity fee is paid.** Completing
+checkout is the trigger — including a $0 checkout where a concession code covered the fee.
+Provisioning fires from the payment webhook, never from reaching the confirmation screen.
+
+This governs the copy on every screen. Do NOT write anything that implies access is live
+before payment: an earlier draft said "your phone is your key, it works as soon as you
+finish these steps", which would have sent a resident who stopped on screen 3 walking to a
+gate that stayed shut, twice told it would open. Screens 1–4 say the keys go live when the
+last step is finished. Screen 5 says it plainly, next to the button.
+
+The resident is never stranded by this: the property hands over unit keys at move-in
+regardless, and the leasing office can let anyone through the gate. The phone key is the
+convenience they are buying, not their only lawful way home. **If a property ever has no
+alternative means of entry, this model does not apply there** — raise it before signing.
+
+### The compliance list is the enforcement mechanism for everything after issuance
 
 A resident who has not signed up or not paid appears on the property's list as
-outstanding. That is the whole remedy. **There is no code path from non-payment to a
-revoked credential**, and there must never be one:
+outstanding. That is the whole remedy for an existing resident. **There is no code path
+from non-payment to a revoked credential**, and there must never be one:
 
 - Denying gate or building access for non-payment reads as a self-help lockout in most
   states. It is illegal, and it is the landlord's remedy, not a vendor's.
 - It is written into the Property Partnership Agreement at §6.3 as non-waivable, and
   carved out of the liability cap.
 
-Anyone proposing "just turn off their key until they pay" is proposing a lawsuit.
+⚠️ **§6.3 needs a revision** to match this. As drafted it reads broadly enough to cover
+initial issuance, which would contradict the model above. It must be narrowed to
+revocation, suspension and degradation of an ISSUED credential, and say explicitly that
+issuance may be conditioned on payment. Until that is done, the agreement and the product
+disagree.
+
+Anyone proposing "just turn off an existing resident's key until they pay" is proposing a
+lawsuit. Anyone proposing "issue the key before they pay" is proposing we work for free.
 
 ---
 

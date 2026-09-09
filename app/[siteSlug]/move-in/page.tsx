@@ -78,7 +78,8 @@ export default function Welcome() {
 
         <div className="mi-free">
           <span aria-hidden>✓</span>
-          Nothing to pay on this screen or the next three.
+          Nothing to pay on this screen or the next three. Your keys go live when
+          you finish the last one.
         </div>
 
         {/* ── From the roster. Not editable here, and the screen says why. ── */}

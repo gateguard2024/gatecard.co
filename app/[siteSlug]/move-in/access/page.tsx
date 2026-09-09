@@ -59,8 +59,7 @@ export default function YourAccess() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="mi-prod-title">Phone key</div>
             <p className="mi-opt-blurb" style={{ margin: '0.1875rem 0 0' }}>
-              Opens the gate and your building door from your phone. Live the
-              moment you finish.
+              Opens the gate and your building door from your phone.
             </p>
             {fee && (
               <div className="mi-prod-price">
@@ -68,9 +67,13 @@ export default function YourAccess() {
               </div>
             )}
             {fee && (
+              /* Said here, plainly, on the screen where the fee first appears.
+                 The alternative is a resident discovering it at checkout, which
+                 is the worst possible moment to learn that the thing they came
+                 for is behind a payment. */
               <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.375rem 0 0' }}>
-                Charged once for Unit {resident.unitNumber} at the last step —
-                per unit, not per person.
+                Charged once for Unit {resident.unitNumber}, not per person.
+                Paying it at the last step is what activates your keys.
               </p>
             )}
           </div>

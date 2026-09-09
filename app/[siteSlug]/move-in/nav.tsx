@@ -91,17 +91,24 @@ export function StripeMark() {
 }
 
 /**
- * The line that has to be true on every screen before payment.
+ * The promise of the flow, stated accurately.
  *
- * It is the whole promise of the flow: your key works when you finish, and
- * nothing before the last screen takes money.
+ * An earlier version of this said the key "works as soon as you finish these
+ * steps". It does not: mobile passes are not issued until the parking and
+ * amenity fee is paid, and payment happens on the last screen. A resident who
+ * read the old line, closed the tab on step 3 and walked to the gate would find
+ * it shut — having been told twice that it would open.
+ *
+ * So the line names the trigger. It is still the reassuring thing to say —
+ * there is nothing to wait for in the mail, no appointment, no office visit —
+ * but what switches the key on is finishing, and finishing includes paying.
  */
 export function PhoneIsYourKey() {
   return (
     <div className="mi-free">
       <span aria-hidden>✓</span>
-      Your phone is your key. It works as soon as you finish these steps — there
-      is nothing to wait for in the mail.
+      Your phone becomes your key. It goes live the moment you finish the last
+      step — nothing to wait for in the mail.
     </div>
   )
 }

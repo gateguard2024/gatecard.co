@@ -84,8 +84,9 @@ export default function HouseholdAccess() {
             <p>
               The {money(fee.amountCents)} {fee.label.toLowerCase()} is charged
               once for Unit {resident.unitNumber}. Everyone on the lease can have
-              a phone key under that one fee. Only the physical add-ons below
-              cost anything.
+              a phone key under that one fee — and everyone&apos;s key goes live
+              together when it is paid. Only the physical add-ons below cost
+              anything.
             </p>
           </div>
         )}

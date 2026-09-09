@@ -78,7 +78,8 @@ export default function Services() {
 
         <div className="mi-free">
           <span aria-hidden>✓</span>
-          Your access is already set — nothing here can hold it up.
+          Nothing here affects your gate access, and nothing here is charged
+          today unless you add it.
         </div>
 
         {offers.map(o => {

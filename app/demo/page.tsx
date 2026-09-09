@@ -204,9 +204,14 @@ export default function DemoSite() {
           ))}
         </div>
         <p style={{ fontSize: '0.8125rem', color: 'var(--text-2)', margin: '0.75rem 0 0' }}>
-          <b>Nobody&apos;s access is ever switched off for not paying.</b> A resident
-          who hasn&apos;t signed up shows on your list as outstanding — it&apos;s a
-          lease matter for your office, not a gate we close on them.
+          A resident&apos;s phone key is issued when they finish and pay — so a
+          resident who hasn&apos;t signed up has no phone key yet, and shows on
+          your list as outstanding.{' '}
+          <b>
+            We never switch off a key someone already has.
+          </b>{' '}
+          Once issued, it stays issued; anything after that is a lease matter for
+          your office, not a gate we close on them.
         </p>
 
         {/* ── What goes away ────────────────────────────────────────────── */}

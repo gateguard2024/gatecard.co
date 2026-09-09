@@ -105,6 +105,13 @@ export default function Review() {
 
   const ADDON: Record<string, string> = { fob: 'Key fob', keytag: 'Key tag' }
 
+  // "Maya and Andre", "Maya, Andre and Asha" — an Oxford-free list, because it
+  // is read aloud in the head and a trailing comma reads as a missing name.
+  const first = holders.map(m => m.firstName)
+  const names = first.length <= 1
+    ? first[0] ?? 'your household'
+    : `${first.slice(0, -1).join(', ')} and ${first[first.length - 1]}`
+
   return (
     <>
       <StepNav index={4} />
@@ -116,7 +123,8 @@ export default function Review() {
 
         <div className="mi-free">
           <span aria-hidden>✓</span>
-          Confirm your order. Payment is processed securely by Stripe.
+          This is the step that switches your keys on. Payment is processed
+          securely by Stripe.
         </div>
 
         {/* ── Who is getting what ───────────────────────────────────────── */}
@@ -282,7 +290,14 @@ export default function Review() {
                 </div>
               </div>
 
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.75rem 0 0' }}>
+              {/* The one thing a resident must understand before they leave
+                  this screen: stopping here means no key. */}
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-2)', margin: '0.75rem 0 0' }}>
+                Every phone key on this order — {names} — is issued once this
+                payment completes. If you stop here, nothing is charged and no
+                keys are issued.
+              </p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
                 Demo mode — the card is Stripe&apos;s test number and this form
                 takes no input. Nothing is charged.
               </p>
@@ -291,7 +306,8 @@ export default function Review() {
             <div className="mi-card-p">
               <p style={{ fontSize: '0.8125rem', color: 'var(--text-2)', margin: 0 }}>
                 Your fee is covered and you added nothing else, so there is no
-                card to enter. Finish setup and your keys go live.
+                card to enter. You still have to finish — that is what issues the
+                keys.
               </p>
             </div>
           )}
