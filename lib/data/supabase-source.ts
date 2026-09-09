@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import type {
   MoveInContext, CredentialOption, ParkingTier, ServiceOffer,
   StoreProduct, OfferMode, CredentialKind, DirectoryMode, DirectoryNameFormat,
+  AccessScope,
 } from '@/lib/types'
 import type {
   SiteRow, ResidentRow, HouseholdRow, CredentialOptionRow, ParkingTierRow,
@@ -27,7 +28,8 @@ export async function fetchMoveInContext(
     .select('id, slug, name, address, city, state, accent_color, logo_url, ' +
             'leasing_phone, leasing_hours, support_email, move_in_enabled, ' +
             'directory_mode, directory_default_listed, directory_formats, directory_note, ' +
-            'parking_fee_label, parking_fee_cents, parking_fee_covers, store_url')
+            'parking_fee_label, parking_fee_cents, parking_fee_covers, store_url, ' +
+            'access_always_granted, access_fee_unlocks')
     .eq('slug', slug)
     .eq('move_in_enabled', true)
     .maybeSingle()
@@ -131,6 +133,21 @@ export async function fetchMoveInContext(
         // The name format is the property's decision, not the resident's.
         format: (site.directory_formats?.[0] ?? 'last_initial') as DirectoryNameFormat,
         note: site.directory_note ?? null,
+      },
+      // Pedestrian access is hard-coded into the default rather than read from
+      // a column, so a misconfigured row can never produce a property where
+      // walking home is behind a payment.
+      access: {
+        alwaysGranted: Array.from(new Set([
+          'pedestrian',
+          ...((site.access_always_granted ?? []) as AccessScope[]),
+        ])) as AccessScope[],
+        feeUnlocks: ((site.access_fee_unlocks?.length
+          ? site.access_fee_unlocks
+          : ['vehicle', 'amenity', 'common']) as AccessScope[])
+          // Pedestrian can never be something the fee unlocks, whatever the row
+          // says. A bad migration must not put walking home behind a payment.
+          .filter(x => x !== 'pedestrian'),
       },
       parkingFee: site.parking_fee_cents
         ? {

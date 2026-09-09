@@ -7,7 +7,7 @@ import { buildReceipt } from '@/lib/receipt'
 import { computeFee } from '@/lib/fees'
 import { formatMoveInDate } from '@/lib/dates'
 import { PhoneKeyArt, GiftArt } from '@/components/art'
-import type { ItemState } from '@/lib/types'
+import { SCOPE_LABEL, type ItemState } from '@/lib/types'
 
 /**
  * 06 · Confirmation
@@ -59,13 +59,18 @@ export default function Confirmation() {
 
   const ADDON: Record<string, string> = { fob: 'Key fob', keytag: 'Key tag' }
 
+  // Everything is live now — the fee is paid, so both scope groups collapse
+  // into one list. Naming them is the receipt for what the fee bought.
+  const scopes = [...property.access.alwaysGranted, ...property.access.feeUnlocks]
+  const opens = scopes.map(sc => SCOPE_LABEL[sc]).join(' · ')
+
   const items = [
     ...holders.map(m => ({
       id: `pass-${m.id}`,
       label: `${m.firstName}’s phone key`,
       detail: m.alreadyActive
         ? 'Already on the roster — unchanged'
-        : `Gate and building door, from ${m.role === 'me' ? 'your' : 'their'} phone`,
+        : `${opens}, from ${m.role === 'me' ? 'your' : 'their'} phone`,
       state: 'working_now' as ItemState,
     })),
     ...holders.flatMap(m => {
@@ -231,8 +236,8 @@ export default function Confirmation() {
             {fee && (
               <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.625rem 0 0' }}>
                 The {property.parkingFee!.label.toLowerCase()} was charged once for
-                your unit, not per person. Nothing here can affect whether your key
-                works.
+                your unit, not per person, and is paid in full through{' '}
+                {formatMoveInDate(resident.leaseEndDate ?? resident.moveInDate)}.
               </p>
             )}
           </div>

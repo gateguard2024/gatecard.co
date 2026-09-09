@@ -33,6 +33,12 @@ const eastPonds: MoveInContext = {
     leasingPhone: '+14045550142',
     leasingHours: 'Mon–Fri 9–6 · Sat 10–4',
     supportEmail: 'leasing@eastponds.example',
+    // Pedestrian access to the buildings is never withheld — that is the line
+    // this whole program stands on. Everything else is what the fee buys.
+    access: {
+      alwaysGranted: ['pedestrian'],
+      feeUnlocks: ['vehicle', 'amenity', 'common'],
+    },
     parkingFee: {
       label: 'Parking & amenity fee',
       amountCents: 15000,
@@ -143,6 +149,12 @@ const campCreek: MoveInContext = {
     leasingPhone: '+14045550188',
     leasingHours: 'Mon–Fri 9–6',
     supportEmail: 'leasing@rhythmcampcreek.example',
+    // Unstaffed and gated, but the walk-in gate still opens for any resident
+    // who has completed sign-up, paid or not.
+    access: {
+      alwaysGranted: ['pedestrian'],
+      feeUnlocks: ['vehicle', 'amenity', 'common'],
+    },
     parkingFee: {
       label: 'Parking & amenity fee',
       amountCents: 12500,
@@ -231,6 +243,12 @@ const lyvBuckhead: MoveInContext = {
     leasingPhone: '+14045550170',
     leasingHours: 'Mon–Sat 9–7 · Sun 12–5',
     supportEmail: 'concierge@lyvbuckhead.example',
+    // A high-rise: the lobby is the pedestrian route home, so it is granted
+    // alongside it. The garage and the amenity floor are what the fee unlocks.
+    access: {
+      alwaysGranted: ['pedestrian', 'common'],
+      feeUnlocks: ['vehicle', 'amenity'],
+    },
     parkingFee: {
       label: 'Parking & amenity fee',
       amountCents: 19500,

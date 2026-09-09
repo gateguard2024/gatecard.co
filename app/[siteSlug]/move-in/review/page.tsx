@@ -8,6 +8,7 @@ import { buildReceipt, type ReceiptLine } from '@/lib/receipt'
 import { computeFee, redeemPromo } from '@/lib/fees'
 import { formatMoveInDate } from '@/lib/dates'
 import { Avatar } from '@/components/move-in-parts'
+import { SCOPE_LABEL } from '@/lib/types'
 
 /**
  * 05 · Review and payment
@@ -107,6 +108,10 @@ export default function Review() {
 
   // "Maya and Andre", "Maya, Andre and Asha" — an Oxford-free list, because it
   // is read aloud in the head and a trailing comma reads as a missing name.
+  const unlockNames = property.access.feeUnlocks
+    .map(sc => SCOPE_LABEL[sc].toLowerCase())
+    .join(', ')
+
   const first = holders.map(m => m.firstName)
   const names = first.length <= 1
     ? first[0] ?? 'your household'
@@ -228,7 +233,8 @@ export default function Review() {
             {fee && (
               <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
                 The {property.parkingFee!.label.toLowerCase()} is charged once for
-                Unit {resident.unitNumber} — not per person.
+                Unit {resident.unitNumber} — not per person — and covers a full
+                twelve months. It is paid in full today, not financed.
               </p>
             )}
           </>
@@ -293,9 +299,9 @@ export default function Review() {
               {/* The one thing a resident must understand before they leave
                   this screen: stopping here means no key. */}
               <p style={{ fontSize: '0.8125rem', color: 'var(--text-2)', margin: '0.75rem 0 0' }}>
-                Every phone key on this order — {names} — is issued once this
-                payment completes. If you stop here, nothing is charged and no
-                keys are issued.
+                This payment opens {unlockNames} for {names}. If you stop here,
+                nothing is charged — and you can still walk to your apartment,
+                that never depends on paying.
               </p>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
                 Demo mode — the card is Stripe&apos;s test number and this form
@@ -306,8 +312,8 @@ export default function Review() {
             <div className="mi-card-p">
               <p style={{ fontSize: '0.8125rem', color: 'var(--text-2)', margin: 0 }}>
                 Your fee is covered and you added nothing else, so there is no
-                card to enter. You still have to finish — that is what issues the
-                keys.
+                card to enter. You still have to finish — that is what opens the
+                gate for you.
               </p>
             </div>
           )}

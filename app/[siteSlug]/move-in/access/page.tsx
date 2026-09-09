@@ -5,6 +5,7 @@ import { StepNav, StripeMark, PhoneIsYourKey } from '../nav'
 import { useMoveIn, vehicleHalfDone } from '../state'
 import { AddOnPicker, VehicleFields } from '@/components/move-in-parts'
 import { PhoneKeyArt } from '@/components/art'
+import { SCOPE_LABEL } from '@/lib/types'
 
 /**
  * 02 · Your access
@@ -26,6 +27,9 @@ export default function YourAccess() {
   const me = resident.household.find(m => m.role === 'me')!
   const sel = s.members[me.id]
   const fee = property.parkingFee
+
+  const always = property.access.alwaysGranted
+  const unlocks = property.access.feeUnlocks
 
   const dir = property.directory
   const dirOn = dir.mode === 'required' ? true : s.directoryListed
@@ -72,12 +76,51 @@ export default function YourAccess() {
                  is the worst possible moment to learn that the thing they came
                  for is behind a payment. */
               <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.375rem 0 0' }}>
-                Charged once for Unit {resident.unitNumber}, not per person.
-                Paying it at the last step is what activates your keys.
+                Charged once for Unit {resident.unitNumber}, not per person, and
+                paid in full for twelve months.
               </p>
             )}
           </div>
         </div>
+
+        {/* ── What the key opens, and what the fee unlocks ──────────────
+            Shown as two lists rather than one, because the difference is the
+            whole shape of the deal: walking home is never behind a payment,
+            and driving in is exactly what the fee buys. A resident who can see
+            that also understands why the charge exists. */}
+        <div className="mi-label" style={{ marginTop: '1.5rem' }}>
+          What your phone key opens
+        </div>
+        <div className="mi-card">
+          {always.map((sc, i) => (
+            <div key={sc} className="mi-card-p"
+                 style={{ borderTop: i ? '1px solid var(--line)' : 'none',
+                          display: 'flex', gap: '0.625rem', alignItems: 'center' }}>
+              <span className="mi-dot" data-s="working_now" />
+              <span style={{ flex: 1, fontSize: '0.875rem' }}>{SCOPE_LABEL[sc]}</span>
+              <span style={{ fontSize: '0.6875rem', color: 'var(--ok)', fontWeight: 700,
+                             textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Always
+              </span>
+            </div>
+          ))}
+          {unlocks.map(sc => (
+            <div key={sc} className="mi-card-p"
+                 style={{ borderTop: '1px solid var(--line)',
+                          display: 'flex', gap: '0.625rem', alignItems: 'center' }}>
+              <span className="mi-dot" data-s="on_the_way" />
+              <span style={{ flex: 1, fontSize: '0.875rem' }}>{SCOPE_LABEL[sc]}</span>
+              <span style={{ fontSize: '0.6875rem', color: 'var(--text-3)', fontWeight: 700,
+                             textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                With the fee
+              </span>
+            </div>
+          ))}
+        </div>
+        <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
+          You can always walk to your apartment — that never depends on paying.
+          The fee is what opens the gate to drive in.
+        </p>
 
         {/* ── Optional physical backup ──────────────────────────────────── */}
         <div className="mi-label" style={{ marginTop: '1.5rem' }}>

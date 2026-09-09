@@ -35,6 +35,43 @@ export interface DirectoryPolicy {
   note: string | null
 }
 
+/**
+ * What a credential opens.
+ *
+ * A phone key is not one switch. It is a set of access points, and the parking
+ * and amenity fee unlocks some of them — not all of them.
+ *
+ *   pedestrian  the walk-in route a resident uses to reach their apartment
+ *   vehicle     the gated lot: driving in
+ *   amenity     pool, gym, clubhouse
+ *   common      shared building doors, mail and package rooms
+ *
+ * This distinction is the whole legal footing of the program. Withholding a
+ * parking permit from someone who has not paid for parking is ordinary
+ * commerce. Withholding the way someone walks home is a self-help lockout, and
+ * it is the landlord's remedy in any case, never a vendor's.
+ */
+export type AccessScope = 'pedestrian' | 'vehicle' | 'amenity' | 'common'
+
+export interface AccessPolicy {
+  /**
+   * Granted the moment sign-up completes, paid or not, and NEVER withheld for
+   * non-payment. Pedestrian access to the dwelling belongs here at every
+   * property, always.
+   */
+  alwaysGranted: AccessScope[]
+  /** Unlocked when the parking and amenity fee is paid in full. */
+  feeUnlocks: AccessScope[]
+}
+
+/** Human labels, so the screens and the emails cannot drift apart. */
+export const SCOPE_LABEL: Record<AccessScope, string> = {
+  pedestrian: 'Pedestrian gate to your building',
+  vehicle: 'Vehicle gate — driving in',
+  amenity: 'Pool, gym and clubhouse',
+  common: 'Building and package room doors',
+}
+
 /** A property. The resident's relationship is with this, not with Gate Guard. */
 export interface Property {
   slug: string
@@ -50,6 +87,8 @@ export interface Property {
   /** Shown on 06. Where support goes — the property, never Gate Guard. */
   supportEmail: string
   directory: DirectoryPolicy
+  /** Which access points the fee unlocks, and which are never withheld. */
+  access: AccessPolicy
   /** Null where the property charges nothing to park inside the gates. */
   parkingFee: ParkingFee | null
 }
@@ -161,8 +200,13 @@ export interface CredentialOption {
 export interface ParkingFee {
   label: string
   /**
-   * One-time, per unit, due at sign-up. Set per property — this is not a
-   * platform constant, and the admin surface edits it per site.
+   * Paid IN FULL at sign-up, per unit, covering a twelve-month term. Never
+   * financed, never split into instalments — there is no partial-payment state
+   * anywhere in this system, and adding one would create a resident who is
+   * halfway through unlocking a gate.
+   *
+   * Set per property. This is not a platform constant; the admin surface edits
+   * it per site.
    */
   amountCents: number
   /** What it covers, in the property's words. */

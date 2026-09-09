@@ -28,6 +28,9 @@ export interface SiteRow {
   parking_fee_label: string | null
   parking_fee_cents: number | null
   parking_fee_covers: string | null
+  /** Access scopes. Pedestrian is forced on in the mapper regardless. */
+  access_always_granted: string[] | null
+  access_fee_unlocks: string[] | null
   store_url: string | null
 }
 
