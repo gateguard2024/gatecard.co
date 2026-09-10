@@ -9,7 +9,11 @@ out/
 build/
 dist/
 
-# Environment files — NEVER commit these
+# Environment files — NEVER commit these.
+# The bare patterns are not enough: a backup like .env.local.pre-v8.31.bak
+# slipped past them once and reached GitHub with live service-role keys in it.
+.env*
+!.env.example
 .env
 .env.local
 .env.development.local
