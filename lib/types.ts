@@ -66,7 +66,7 @@ export interface AccessPolicy {
 
 /** Human labels, so the screens and the emails cannot drift apart. */
 export const SCOPE_LABEL: Record<AccessScope, string> = {
-  pedestrian: 'Pedestrian gate to your building',
+  pedestrian: 'Pedestrian gate to your property',
   vehicle: 'Vehicle gate — driving in',
   amenity: 'Pool, gym and clubhouse',
   common: 'Building and package room doors',
