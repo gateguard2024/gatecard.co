@@ -158,15 +158,55 @@ export function addOnPrice(ctx: MoveInContext, kind: AddOnKind): number {
   return ctx.credentials.find(c => c.kind === kind)?.priceCents ?? 0
 }
 
-/** A vehicle is finished when it can actually reach a gate: plate and state. */
-export function vehicleComplete(v: VehicleDraft | null): boolean {
-  return Boolean(v && v.plate.trim().length >= 2 && v.state.trim().length >= 2)
+/**
+ * All four fields, or none.
+ *
+ * The plate is what the gate reads, but the plate alone is not what resolves a
+ * dispute. A camera sees a partial, or two residents transpose a character, or
+ * a car is towed — and "GA ABC1234" against "a silver Honda Civic" is the
+ * difference between a phone call and an argument. So make and model are
+ * required too, and the resident is told so before they can move on.
+ *
+ * The escape hatch is "No vehicle", which is a real answer and not a way to
+ * skip a required field.
+ */
+export const VEHICLE_FIELDS = ['plate', 'state', 'make', 'model'] as const
+export type VehicleField = (typeof VEHICLE_FIELDS)[number]
+
+const MIN: Record<VehicleField, number> = { plate: 2, state: 2, make: 2, model: 1 }
+
+/** Which of the four are still missing. Empty means the vehicle is finished. */
+export function vehicleMissing(v: VehicleDraft | null): VehicleField[] {
+  if (!v) return [...VEHICLE_FIELDS]
+  return VEHICLE_FIELDS.filter(f => v[f].trim().length < MIN[f])
 }
 
-/** Touched but unfinished — worse than none, it reaches the gate half-formed. */
+export function vehicleComplete(v: VehicleDraft | null): boolean {
+  return vehicleMissing(v).length === 0
+}
+
+/** This person has answered the vehicle question one way or the other. */
+export function vehicleSettled(sel: MemberSelection | undefined): boolean {
+  if (!sel) return false
+  return sel.noVehicle || vehicleComplete(sel.vehicle)
+}
+
+/** Started filling it in and stopped. Distinct from not having begun. */
 export function vehicleHalfDone(sel: MemberSelection | undefined): boolean {
   if (!sel || sel.noVehicle || !sel.vehicle) return false
   const v = sel.vehicle
-  const touched = v.plate.trim() || v.state.trim() || v.make.trim() || v.model.trim()
-  return Boolean(touched) && !vehicleComplete(v)
+  const touched = VEHICLE_FIELDS.some(f => v[f].trim())
+  return touched && !vehicleComplete(v)
+}
+
+const FIELD_LABEL: Record<VehicleField, string> = {
+  plate: 'plate number', state: 'state', make: 'make', model: 'model',
+}
+
+/** "a plate number and a state", "a make" — for a sentence, not a list. */
+export function missingPhrase(missing: VehicleField[]): string {
+  const names = missing.map(f => FIELD_LABEL[f])
+  if (names.length === 0) return ''
+  if (names.length === 1) return names[0]
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
 }

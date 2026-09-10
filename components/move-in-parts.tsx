@@ -2,7 +2,9 @@
 
 import { money } from '@/components/chrome'
 import { FobArt, KeyTagArt, PhoneKeyArt } from '@/components/art'
-import { EMPTY_VEHICLE } from '@/app/[siteSlug]/move-in/state'
+import {
+  EMPTY_VEHICLE, vehicleMissing, missingPhrase,
+} from '@/app/[siteSlug]/move-in/state'
 import type {
   AddOnKind, CredentialOption, MemberSelection, VehicleDraft,
 } from '@/lib/types'
@@ -138,6 +140,14 @@ export function VehicleFields({
   const setV = (patch: Partial<VehicleDraft>) =>
     onChange({ vehicle: { ...v, ...patch }, noVehicle: false })
 
+  // All four are required. The hint only appears once they have started —
+  // scolding someone for an empty form they have not reached yet is how a
+  // two-minute task starts feeling adversarial.
+  const missing = vehicleMissing(sel.vehicle)
+  const started = !sel.noVehicle && missing.length < 4
+  const short = (f: 'plate' | 'state' | 'make' | 'model') =>
+    started && missing.includes(f)
+
   return (
     <div>
       <label className="mi-opt" data-sel={sel.noVehicle ? 'true' : 'false'}
@@ -170,35 +180,64 @@ export function VehicleFields({
         <>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 88px', gap: '0.5rem' }}>
             <div>
-              <label className="mi-label" htmlFor={`plate-${id}`}>Plate number</label>
+              <label className="mi-label" htmlFor={`plate-${id}`}>
+                Plate number <Req />
+              </label>
               <input id={`plate-${id}`} className="mi-input" autoCapitalize="characters"
-                     placeholder="ABC 1234" value={v.plate}
+                     placeholder="ABC 1234" value={v.plate} required
+                     aria-invalid={short('plate') || undefined}
+                     data-short={short('plate') ? 'true' : undefined}
                      onChange={e => setV({ plate: e.target.value.toUpperCase() })} />
             </div>
             <div>
-              <label className="mi-label" htmlFor={`state-${id}`}>State</label>
+              <label className="mi-label" htmlFor={`state-${id}`}>State <Req /></label>
               <input id={`state-${id}`} className="mi-input" maxLength={2}
-                     autoCapitalize="characters" placeholder="GA" value={v.state}
+                     autoCapitalize="characters" placeholder="GA" value={v.state} required
+                     aria-invalid={short('state') || undefined}
+                     data-short={short('state') ? 'true' : undefined}
                      onChange={e => setV({ state: e.target.value.toUpperCase() })} />
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem',
                         marginTop: '0.625rem' }}>
             <div>
-              <label className="mi-label" htmlFor={`make-${id}`}>Make</label>
+              <label className="mi-label" htmlFor={`make-${id}`}>Make <Req /></label>
               <input id={`make-${id}`} className="mi-input" placeholder="Honda" value={v.make}
+                     required
+                     aria-invalid={short('make') || undefined}
+                     data-short={short('make') ? 'true' : undefined}
                      onChange={e => setV({ make: e.target.value })} />
             </div>
             <div>
-              <label className="mi-label" htmlFor={`model-${id}`}>Model</label>
+              <label className="mi-label" htmlFor={`model-${id}`}>Model <Req /></label>
               <input id={`model-${id}`} className="mi-input" placeholder="Civic" value={v.model}
+                     required
+                     aria-invalid={short('model') || undefined}
+                     data-short={short('model') ? 'true' : undefined}
                      onChange={e => setV({ model: e.target.value })} />
             </div>
           </div>
+
+          {started && missing.length > 0 && (
+            <p className="mi-need" role="status">
+              Still need {missingPhrase(missing)} for {name}&apos;s vehicle.
+            </p>
+          )}
+          {!started && (
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.625rem 0 0' }}>
+              All four are required. Make and model are what settle a dispute
+              when a camera only catches part of a plate.
+            </p>
+          )}
         </>
       )}
     </div>
   )
+}
+
+/** The required mark. One character, brass, never a word. */
+function Req() {
+  return <span className="mi-req" aria-hidden>*</span>
 }
 
 /** Initials mark for a person, when there's no headshot. */

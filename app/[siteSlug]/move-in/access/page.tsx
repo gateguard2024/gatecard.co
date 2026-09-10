@@ -2,7 +2,7 @@
 
 import { StepFooter, money } from '@/components/chrome'
 import { StepNav, StripeMark, PhoneIsYourKey } from '../nav'
-import { useMoveIn, vehicleHalfDone } from '../state'
+import { useMoveIn, vehicleSettled, vehicleMissing, missingPhrase } from '../state'
 import { AddOnPicker, VehicleFields } from '@/components/move-in-parts'
 import { PhoneKeyArt } from '@/components/art'
 import { SCOPE_LABEL } from '@/lib/types'
@@ -36,7 +36,12 @@ export default function YourAccess() {
 
   const phoneDigits = s.directoryPhone.replace(/\D/g, '')
   const dirNeedsNumber = dirOn && phoneDigits.length !== 10
-  const ready = !vehicleHalfDone(sel) && !dirNeedsNumber
+
+  // A vehicle is all four fields or an explicit "No vehicle". There is no
+  // third state where a plate reaches the gate with nothing attached to it.
+  const vehicleOk = vehicleSettled(sel)
+  const missing = vehicleMissing(sel.vehicle)
+  const ready = vehicleOk && !dirNeedsNumber
 
   const fmt = (raw: string) => {
     const d = raw.replace(/\D/g, '').slice(0, 10)
@@ -144,12 +149,7 @@ export default function YourAccess() {
           onChange={patch => setMember(me.id, patch)}
           name={resident.firstName}
         />
-        {vehicleHalfDone(sel) && (
-          <p style={{ fontSize: '0.75rem', color: 'var(--warn)', marginTop: '0.5rem' }}>
-            Your vehicle is missing a plate or a state — finish it, or tick
-            &ldquo;No vehicle&rdquo;.
-          </p>
-        )}
+
 
         {/* ── Callbox directory ─────────────────────────────────────────── */}
         {dir.mode !== 'hidden' && (
@@ -233,8 +233,11 @@ export default function YourAccess() {
       <StepFooter
         href={`/${siteSlug}/move-in/household`}
         label={ready ? 'Next: Household access'
-          : dirNeedsNumber ? 'Add a directory number'
-          : 'Finish your vehicle'}
+          : !vehicleOk
+            ? (missing.length === 4
+                ? 'Add your vehicle, or tick No vehicle'
+                : `Add your ${missingPhrase(missing)}`)
+            : 'Add a directory number'}
         disabled={!ready}
       />
       <StripeMark />

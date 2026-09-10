@@ -2,7 +2,9 @@
 
 import { StepFooter, money } from '@/components/chrome'
 import { StepNav, StripeMark, PhoneIsYourKey } from '../nav'
-import { useMoveIn, vehicleHalfDone, addOnPrice } from '../state'
+import {
+  useMoveIn, vehicleSettled, vehicleMissing, missingPhrase, addOnPrice,
+} from '../state'
 import { AddOnPicker, VehicleFields, Avatar } from '@/components/move-in-parts'
 
 /**
@@ -29,8 +31,10 @@ export default function HouseholdAccess() {
   const others = resident.household.filter(m => m.role !== 'me')
   const fee = property.parkingFee
 
-  const halfDone = others.some(m => s.members[m.id]?.pass && vehicleHalfDone(s.members[m.id]))
-  const ready = !halfDone
+  // Granting someone a pass means answering the vehicle question for them.
+  const unsettled = others.filter(
+    m => s.members[m.id]?.pass && !vehicleSettled(s.members[m.id]))
+  const ready = unsettled.length === 0
 
   const addOnTotal = resident.household.reduce((n, m) => {
     const sel = s.members[m.id]
@@ -141,12 +145,7 @@ export default function HouseholdAccess() {
                     onChange={patch => setMember(m.id, patch)}
                     name={m.firstName}
                   />
-                  {vehicleHalfDone(sel) && (
-                    <p style={{ fontSize: '0.75rem', color: 'var(--warn)', marginTop: '0.5rem' }}>
-                      {m.firstName}&apos;s vehicle is missing a plate or a state —
-                      finish it, or tick &ldquo;No vehicle&rdquo;.
-                    </p>
-                  )}
+
                 </div>
               )}
             </div>
@@ -166,7 +165,15 @@ export default function HouseholdAccess() {
 
       <StepFooter
         href={`/${siteSlug}/move-in/services`}
-        label={ready ? 'Next: Optional services' : 'Finish the vehicle above'}
+        label={ready
+          ? 'Next: Optional services'
+          : (() => {
+              const m = unsettled[0]
+              const miss = vehicleMissing(s.members[m.id].vehicle)
+              return miss.length === 4
+                ? `Add ${m.firstName}'s vehicle, or tick No vehicle`
+                : `Add ${m.firstName}'s ${missingPhrase(miss)}`
+            })()}
         disabled={!ready}
       />
       <StripeMark />

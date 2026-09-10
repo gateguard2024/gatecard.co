@@ -904,4 +904,24 @@
     font-size: 0.6875rem; color: var(--text-3); margin: 0.875rem 0 0;
     line-height: 1.5;
   }
+
+  /* ── Required ─────────────────────────────────────────────────────────────
+     A brass asterisk, not the word "required" after every label. Four
+     "(required)" tags down one form is louder than the form itself. */
+  .mi-req { color: var(--metal); font-weight: 700; margin-left: 0.125rem; }
+
+  /* A field that is short is outlined, not filled red. The message below the
+     group says what is missing; the outline says which box. */
+  .mi-input[data-short="true"] {
+    border-color: color-mix(in srgb, var(--warn) 55%, transparent);
+  }
+  .mi-input[data-short="true"]:focus {
+    border-color: var(--metal);
+    box-shadow: 0 0 0 1px var(--metal);
+  }
+
+  .mi-need {
+    font-size: 0.8125rem; color: var(--warn);
+    margin: 0.75rem 0 0; line-height: 1.5;
+  }
 }
