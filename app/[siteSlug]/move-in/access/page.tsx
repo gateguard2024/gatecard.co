@@ -124,12 +124,13 @@ export default function YourAccess() {
 
         {/* ── Optional physical backup ──────────────────────────────────── */}
         <div className="mi-label" style={{ marginTop: '1.5rem' }}>
-          Optional add-on
+          How you&apos;ll open the gate
         </div>
         <AddOnPicker
           credentials={ctx.credentials}
           value={sel.addOn}
           onChange={k => setMember(me.id, { addOn: k })}
+          id={me.id}
           name={resident.firstName}
         />
 

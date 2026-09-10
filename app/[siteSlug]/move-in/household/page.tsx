@@ -122,12 +122,13 @@ export default function HouseholdAccess() {
                 <div style={{ marginTop: '1rem', paddingTop: '1rem',
                               borderTop: '1px solid var(--line)' }}>
                   <div className="mi-label">
-                    Optional add-on for {m.firstName}
+                    How {m.firstName} will open the gate
                   </div>
                   <AddOnPicker
                     credentials={ctx.credentials}
                     value={sel.addOn}
                     onChange={k => setMember(m.id, { addOn: k })}
+                    id={m.id}
                     name={m.firstName}
                   />
 

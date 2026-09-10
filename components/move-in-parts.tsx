@@ -1,7 +1,7 @@
 'use client'
 
 import { money } from '@/components/chrome'
-import { FobArt, KeyTagArt } from '@/components/art'
+import { FobArt, KeyTagArt, PhoneKeyArt } from '@/components/art'
 import { EMPTY_VEHICLE } from '@/app/[siteSlug]/move-in/state'
 import type {
   AddOnKind, CredentialOption, MemberSelection, VehicleDraft,
@@ -22,61 +22,98 @@ const ART: Record<string, (p: { size: number }) => React.JSX.Element> = {
   keytag: KeyTagArt,
 }
 
+const TITLE: Record<string, string> = { fob: 'Key Fob', keytag: 'Key Tag' }
+
 const BLURB: Record<string, string> = {
   fob: 'A plastic visor fob for your car or bag.',
   keytag: 'A small tag that clips right on your keyring.',
 }
 
 /**
- * One physical credential, or none.
+ * How this person opens the gate: phone only, a fob, or a tag.
  *
- * Either/or rather than a quantity: a credential is enrolled against a named
- * person in Brivo, and a second one in the same pocket is a spare key to the
- * community that belongs to nobody in particular.
+ * A radio group rather than two checkboxes. The rule is one physical key per
+ * person — a credential is enrolled against a named human in Brivo, and a
+ * second one in the same pocket is a spare key to the community that belongs
+ * to nobody in particular. Radios say that in the control itself, instead of
+ * making a resident discover it by ticking the second box and watching the
+ * first one clear.
+ *
+ * "Phone only" is a real option with a real label, not the absence of a
+ * choice. Most residents want exactly that, and they should be able to pick it
+ * rather than conclude they have skipped something.
  */
 export function AddOnPicker({
-  credentials, value, onChange, name,
+  credentials, value, onChange, id, name,
 }: {
   credentials: CredentialOption[]
   value: AddOnKind
   onChange: (k: AddOnKind) => void
-  /** Whose add-on this is, for the accessible label. */
+  /** Unique per person — keeps each household member's radios in their own group. */
+  id: string
+  /** Whose choice this is, for the accessible label. */
   name: string
 }) {
   const physical = credentials.filter(c => c.isPhysical)
   if (physical.length === 0) return null
 
-  const pick = (k: AddOnKind) => onChange(value === k ? 'none' : k)
+  const options: {
+    kind: AddOnKind
+    title: string
+    blurb: string
+    price: string
+    Art: (p: { size: number }) => React.JSX.Element
+  }[] = [
+    {
+      kind: 'none',
+      title: 'Phone only',
+      blurb: 'Your phone opens the gate. Nothing to carry, nothing to lose.',
+      price: 'Included',
+      Art: PhoneKeyArt,
+    },
+    ...physical.map(c => {
+      const k = c.kind as 'fob' | 'keytag'
+      return {
+        kind: k as AddOnKind,
+        title: TITLE[k] ?? c.label,
+        blurb: c.blurb || BLURB[k],
+        price: money(c.priceCents),
+        Art: ART[k],
+      }
+    }),
+  ]
 
   return (
-    <div>
-      {physical.map(c => {
-        const k = c.kind as 'fob' | 'keytag'
-        const Art = ART[k]
-        const on = value === k
+    <div role="radiogroup" aria-label={`Key choice for ${name}`}>
+      {options.map(o => {
+        const on = value === o.kind
         return (
-          <label key={c.kind} className="mi-opt" data-sel={on ? 'true' : 'false'}>
+          <label key={o.kind} className="mi-opt" data-sel={on ? 'true' : 'false'}>
             <input
-              type="checkbox"
+              type="radio"
+              name={`addon-${id}`}
               checked={on}
-              onChange={() => pick(k)}
-              aria-label={`${on ? 'Remove' : 'Add'} a ${c.label} for ${name}`}
+              onChange={() => onChange(o.kind)}
+              aria-label={`${o.title} for ${name}`}
               style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}
             />
+            <span className="mi-radio" aria-hidden />
             <span className="mi-art-inline" style={{ width: 46 }}>
-              {Art ? <Art size={44} /> : null}
+              {o.Art ? <o.Art size={44} /> : null}
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="mi-opt-title">{c.label}</div>
-              <div className="mi-opt-blurb">{c.blurb || BLURB[k]}</div>
+              <div className="mi-opt-title">{o.title}</div>
+              <div className="mi-opt-blurb">{o.blurb}</div>
             </div>
-            <span className="mi-price">{money(c.priceCents)}</span>
+            <span className="mi-price" data-free={o.kind === 'none' ? 'true' : 'false'}>
+              {o.price}
+            </span>
           </label>
         )
       })}
       <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
-        One physical key per person — a fob or a tag, not both. Optional, and it
-        ships by mail. Your phone key works either way.
+        One physical key per person. A fob or tag ships by mail — the phone key
+        works either way, so nothing waits on the post.
       </p>
     </div>
   )
