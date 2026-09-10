@@ -70,6 +70,10 @@ export default function Welcome() {
     <>
       <StepNav index={0} />
       <div className="mi-body">
+        <div className="mi-folio">
+          Unit {resident.unitNumber} · {isRenewal ? 'Renewal' : 'Move-in'}{' '}
+          {formatMoveInDate(resident.moveInDate)}
+        </div>
         <h1 className="mi-h1">Welcome home, {resident.firstName}.</h1>
         <p className="mi-lede">
           Let&apos;s get your access working before you carry the first box in.
@@ -105,7 +109,7 @@ export default function Welcome() {
         <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', margin: '0.5rem 0 0' }}>
           Your name, unit, date and email come from your lease. If any of it is
           wrong, the leasing office has to change it — we can&apos;t.{' '}
-          <a href={`tel:${property.leasingPhone}`} style={{ color: 'var(--accent-hi)', fontWeight: 600 }}>
+          <a href={`tel:${property.leasingPhone}`} style={{ color: 'var(--metal-hi)', fontWeight: 600 }}>
             Call {property.name}
           </a>
         </p>

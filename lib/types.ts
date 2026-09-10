@@ -72,6 +72,20 @@ export const SCOPE_LABEL: Record<AccessScope, string> = {
   common: 'Building and package room doors',
 }
 
+/**
+ * The same scopes written to sit inside a sentence.
+ *
+ * SCOPE_LABEL is a list item and carries an em-dash for clarity in a column;
+ * dropped into prose that produces "opens vehicle gate — driving in, pool, gym
+ * and clubhouse, building doors", where the dash reads as the end of the list.
+ */
+export const SCOPE_PHRASE: Record<AccessScope, string> = {
+  pedestrian: 'the pedestrian gate',
+  vehicle: 'the vehicle gate',
+  amenity: 'the pool and gym',
+  common: 'the building doors',
+}
+
 /** A property. The resident's relationship is with this, not with Gate Guard. */
 export interface Property {
   slug: string

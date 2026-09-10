@@ -14,6 +14,7 @@
 
 @theme {
   --font-sans: var(--font-montserrat), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-serif), 'Iowan Old Style', Georgia, serif;
 }
 
 :root {
@@ -35,12 +36,30 @@
   /* One flat shade. A repeating grid at this scale reads as banding, not
      texture, and stacking a radial on top of it gave the page two gradients
      fighting each other. The depth comes from the surface ramp instead. */
-  --bg:                #2B3746;
+  /* Deepened. The old ground was a mid slate — legible, but it read like a
+     dashboard. Taking it down toward ink gives the brass something to sit
+     against, and lets a card feel lit rather than merely lighter. */
+  --bg:                #1B2430;
 
-  --surface:           #35455A;   /* cards sit ABOVE the ground */
-  --surface-2:         #3F5167;
-  --surface-frost:     #4C5D72;   /* the portal's lighter frosted panel */
-  --surface-sunk:      #222C39;   /* wells, price pills, progress tracks */
+  --surface:           #26313F;   /* cards sit ABOVE the ground */
+  --surface-2:         #2F3C4C;
+  --surface-frost:     #3A4859;   /* the portal's lighter frosted panel */
+  --surface-sunk:      #151C25;   /* wells, price pills, progress tracks */
+
+  /* ── Brass ─────────────────────────────────────────────────────────────────
+     The premium register, and the only warm thing on the page.
+
+     Every reference the brief pointed at converges here: the Ritz-Carlton's
+     brass and cobalt, Binance's amber on near-black, Coinbase's restraint
+     about how much colour a screen actually needs. One warm metal against a
+     cool ground reads as considered; two accents fighting reads as a theme.
+
+     Reserved for money, hairlines and completion. It never competes with the
+     property's own accent, which still owns identity — the header mark, the
+     selected state, the primary action. */
+  --metal:             #C9A961;
+  --metal-hi:          #E4CE96;
+  --metal-dim:         rgba(201,169,97,0.22);
 
   /* Contrast-checked against BOTH --surface and --bg. */
   --text:              #EEF3F9;   /* 8.8:1 on card  */
@@ -50,18 +69,25 @@
 
   /* Stronger than the first pass. Borders are doing real work now that the
      surfaces are closer in hue than in lightness. */
-  --line:              rgba(226,238,250,0.14);
-  --line-2:            rgba(226,238,250,0.26);
+  /* Thinner and cooler. Chunky borders are the fastest way to make a dark
+     interface look cheap. */
+  --line:              rgba(226,238,250,0.10);
+  --line-2:            rgba(226,238,250,0.20);
 
   --ok:                #5FD3A8;
   --warn:              #F2C24B;
   --stop:              #F0707F;
 
-  --shadow-card:       0 1px 0 rgba(255,255,255,0.07) inset, 0 8px 24px rgba(8,14,22,0.42);
-  --shadow-lift:       0 1px 0 rgba(255,255,255,0.09) inset, 0 18px 44px rgba(8,14,22,0.52);
+  /* A hairline of light along the top edge is what makes a surface read as
+     lit from above rather than just painted a lighter colour. */
+  --shadow-card:       0 1px 0 rgba(255,255,255,0.06) inset, 0 10px 30px rgba(4,8,14,0.55);
+  --shadow-lift:       0 1px 0 rgba(255,255,255,0.09) inset, 0 22px 56px rgba(4,8,14,0.62);
 
-  --r-card:            1rem;
-  --r-btn:             0.75rem;
+  /* 2px, not 16px. A rounded rectangle at 1rem is the single most legible
+     tell of a generated interface — it is what every framework default looks
+     like. Brass, stone and glass meet at sharp edges; so does this. */
+  --r-card:            3px;
+  --r-btn:             2px;
   --shell:             440px;
 }
 
@@ -72,6 +98,15 @@
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
   html { height: 100%; -webkit-text-size-adjust: 100%; }
+  /* A whisper of grain over everything. Not visible as texture — visible as
+     the absence of the flat, plastic dark that a hex value alone produces. */
+  body::before {
+    content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    opacity: 0.5;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  }
+  .mi-shell { position: relative; z-index: 1; }
+
   body {
     min-height: 100%;
     margin: 0;
@@ -110,11 +145,11 @@
     background: linear-gradient(180deg,
       color-mix(in srgb, var(--surface-frost) 62%, transparent),
       transparent);
-    border-bottom: 1px solid var(--line);
-    padding: 1.25rem 1.125rem 1rem;
+    border-bottom: 1px solid var(--metal-dim);
+    padding: 1.375rem 1.125rem 1.125rem;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.8125rem;
   }
   .mi-head-mark {
     width: 38px; height: 38px;
@@ -127,35 +162,65 @@
     flex: none;
   }
   .mi-head-name {
-    font-weight: 600; font-size: 1.0625rem; letter-spacing: -0.015em;
-    line-height: 1.2;
+    font-family: var(--font-display);
+    font-weight: 500; font-size: 1.3125rem; letter-spacing: 0;
+    line-height: 1.15;
   }
   .mi-head-sub { font-size: 0.75rem; color: var(--text-3); margin-top: 1px; }
 
   /* ── Step rail ──────────────────────────────────────────────────────────── */
-  .mi-rail { display: flex; gap: 5px; padding: 0 1.125rem 0.25rem; }
+  .mi-rail { display: flex; gap: 0; padding: 0 1.125rem 0.25rem; }
   .mi-rail-seg {
-    height: 3px; flex: 1; border-radius: 2px;
-    background: var(--line-2);
+    height: 1px; flex: 1; border-radius: 0;
+    background: var(--line);
   }
-  .mi-rail-seg[data-on="true"]   { background: linear-gradient(90deg, var(--accent), var(--accent-hi)); }
-  .mi-rail-seg[data-now="true"]  { background: var(--accent); opacity: 0.55; }
+  .mi-rail-seg[data-on="true"]   { background: linear-gradient(90deg, var(--metal), var(--metal-hi)); }
+  .mi-rail-seg[data-now="true"]  {
+    background: var(--metal); opacity: 1;
+    box-shadow: 0 0 0 0.5px var(--metal);
+  }
   .mi-rail-label {
     padding: 0.5rem 1.125rem 0;
-    font-size: 0.6875rem; letter-spacing: 0.09em; text-transform: uppercase;
-    color: var(--text-3); font-weight: 600;
+    font-size: 0.625rem; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--text-3); font-weight: 500;
   }
 
-  /* ── Typography ─────────────────────────────────────────────────────────── */
+  /* ── Typography ───────────────────────────────────────────────────────────
+     The greeting is the one place a resident is addressed as a person rather
+     than processed as a record, so it gets the serif and the room. */
   .mi-h1 {
-    font-size: 1.6rem; line-height: 1.18; letter-spacing: -0.03em;
-    font-weight: 600; margin: 0.5rem 0 0.4rem;
+    font-family: var(--font-display);
+    font-size: 2.25rem; line-height: 1.08; letter-spacing: -0.012em;
+    font-weight: 400; margin: 0.75rem 0 0.5rem;
+    color: var(--text);
   }
-  .mi-lede { font-size: 0.9375rem; color: var(--text-2); margin: 0 0 1.25rem; }
+  .mi-lede {
+    font-size: 0.9375rem; color: var(--text-2); margin: 0 0 1.375rem;
+    line-height: 1.55;
+  }
+
+  /* Money is a number you are asked to trust. Tabular figures keep the
+     decimals in a column down a receipt, which is the whole reason a printed
+     statement is readable and a naive web total is not. */
+  .mi-price, .mi-fact-v, .mi-pay-total, .mi-prod-price, .mi-note-row b,
+  .mi-step-val, .mi-bill-amt {
+    font-variant-numeric: lining-nums tabular-nums;
+    font-feature-settings: 'lnum' 1, 'tnum' 1;
+  }
+
+  /* Cormorant ships oldstyle figures by default — 1 sits on the baseline as a
+     bare stroke and 0 rides low, so "$120" reads as "$I2O". Charming in a book,
+     unusable on an amount someone is about to be charged. Lining figures,
+     everywhere a number means money. */
+  .mi-h1, .mi-prod-title, .mi-head-name, .mi-pay-total > :last-child {
+    font-variant-numeric: lining-nums;
+    font-feature-settings: 'lnum' 1;
+  }
 
   /* ── Card ───────────────────────────────────────────────────────────────── */
   .mi-card {
-    background: var(--surface);
+    background: linear-gradient(180deg,
+      color-mix(in srgb, #FFFFFF 3%, var(--surface)), var(--surface));
     border: 1px solid var(--line);
     border-radius: var(--r-card);
     box-shadow: var(--shadow-card);
@@ -163,33 +228,45 @@
   .mi-card-p { padding: 1rem 1.0625rem; }
 
   /* ── Reassurance strip — "nothing to pay here" (screens 01–03) ──────────── */
+  /* Was a green pill. Now a ruled note — the register of a card left on a
+     desk rather than a toast notification. */
   .mi-free {
-    display: flex; align-items: center; gap: 0.5rem;
-    padding: 0.6875rem 0.875rem;
-    border-radius: 0.75rem;
-    background: color-mix(in srgb, var(--ok) 10%, transparent);
-    border: 1px solid color-mix(in srgb, var(--ok) 26%, transparent);
-    color: var(--ok);
-    font-size: 0.8125rem; font-weight: 500;
-    margin-bottom: 1rem;
+    display: flex; align-items: flex-start; gap: 0.625rem;
+    padding: 0.8125rem 0 0.875rem;
+    border-top: 1px solid var(--metal-dim);
+    border-bottom: 1px solid var(--line);
+    background: none;
+    color: var(--text-2);
+    font-size: 0.8125rem; font-weight: 400; line-height: 1.5;
+    margin: 0 0 1.375rem;
+  }
+  .mi-free > :first-child {
+    color: var(--metal); font-size: 0.75rem; line-height: 1.6; flex: none;
   }
 
   /* ── Selectable option row ──────────────────────────────────────────────── */
   .mi-opt {
-    display: flex; align-items: flex-start; gap: 0.8125rem;
-    padding: 0.9375rem 1rem;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--r-card);
+    display: flex; align-items: flex-start; gap: 0.875rem;
+    padding: 1rem 0.875rem 1rem 0.75rem;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    border-left: 2px solid transparent;
+    border-radius: 0;
     cursor: pointer;
-    transition: border-color .14s, background .14s, box-shadow .14s;
+    transition: border-color .16s, background .16s;
   }
-  .mi-opt + .mi-opt { margin-top: 0.625rem; }
-  .mi-opt:hover:not([aria-disabled="true"]) { border-color: var(--line-2); }
+  .mi-opt + .mi-opt { margin-top: 0; }
+  .mi-opt:first-of-type { border-top: 1px solid var(--line); }
+  .mi-opt:hover:not([aria-disabled="true"]) {
+    background: color-mix(in srgb, #FFFFFF 3%, transparent);
+  }
+  /* Chosen: a brass rule down the left edge and the faintest warm wash.
+     No ring, no fill, no lift. */
   .mi-opt[data-sel="true"] {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 7%, var(--surface));
-    box-shadow: 0 0 0 1px var(--accent) inset;
+    border-left-color: var(--metal);
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--metal) 8%, transparent), transparent 60%);
   }
   .mi-opt[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
 
@@ -199,7 +276,7 @@
     display: grid; place-items: center;
     transition: border-color .14s, background .14s;
   }
-  .mi-opt[data-sel="true"] .mi-tick { border-color: var(--accent-hi); background: var(--accent-hi); }
+  .mi-opt[data-sel="true"] .mi-tick { border-color: var(--metal); background: var(--metal); }
   .mi-tick svg { opacity: 0; width: 12px; height: 12px; color: #071119; }
   .mi-opt[data-sel="true"] .mi-tick svg { opacity: 1; }
 
@@ -209,6 +286,7 @@
 
   /* ── Price pill ─────────────────────────────────────────────────────────── */
   .mi-price {
+    color: var(--metal-hi);
     font-size: 0.8125rem; font-weight: 600; white-space: nowrap; flex: none;
     padding: 0.1875rem 0.5rem; border-radius: 0.5rem;
     background: var(--surface-sunk); color: var(--text-2);
@@ -220,9 +298,9 @@
 
   /* ── Fields ─────────────────────────────────────────────────────────────── */
   .mi-label {
-    display: block; font-size: 0.75rem; font-weight: 600;
-    letter-spacing: 0.05em; text-transform: uppercase;
-    color: var(--text-3); margin-bottom: 0.375rem;
+    display: block; font-size: 0.625rem; font-weight: 600;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--text-3); margin-bottom: 0.5rem;
   }
   .mi-input {
     width: 100%; padding: 0.75rem 0.875rem;
@@ -238,20 +316,37 @@
   }
 
   /* ── Read-only fact row (identity confirmation) ─────────────────────────── */
-  .mi-fact { display: flex; justify-content: space-between; gap: 1rem; padding: 0.8125rem 0; }
+  .mi-fact {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 1rem; padding: 0.8125rem 0;
+  }
   .mi-fact + .mi-fact { border-top: 1px solid var(--line); }
-  .mi-fact-k { font-size: 0.8125rem; color: var(--text-3); }
-  .mi-fact-v { font-size: 0.8125rem; font-weight: 550; text-align: right; }
+  .mi-fact-k {
+    font-size: 0.6875rem; color: var(--text-3); flex: none;
+    letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600;
+  }
+  /* An email address is longer than the row it sits in. Let it wrap and break
+     rather than run off the card — a clipped address on the screen that asks
+     you to confirm that address is a special kind of failure. */
+  .mi-fact-v {
+    font-size: 0.875rem; font-weight: 600; text-align: right;
+    min-width: 0; overflow-wrap: anywhere;
+  }
 
   /* ── Buttons ────────────────────────────────────────────────────────────── */
+  /* Brass, squared, and set in small caps. The primary action is the one
+     moment worth spending the metal on — and a wide-tracked uppercase label
+     on a flat brass field is lobby signage, not a mobile app button. */
   .mi-btn {
     display: flex; align-items: center; justify-content: center; gap: 0.5rem;
-    width: 100%; padding: 0.9375rem 1.25rem;
+    width: 100%; padding: 1.0625rem 1.25rem;
     border: none; border-radius: var(--r-btn);
-    background: linear-gradient(180deg, var(--accent-hi), var(--accent));
-    color: var(--accent-ink);
-    box-shadow: 0 1px 0 rgba(255,255,255,0.22) inset, 0 2px 10px rgba(0,0,0,0.28);
-    font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.01em;
+    background: linear-gradient(180deg, var(--metal-hi), var(--metal));
+    color: #1A1408;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.30) inset,
+                0 6px 18px rgba(0,0,0,0.40);
+    font-size: 0.75rem; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
     cursor: pointer; transition: filter .14s, transform .06s;
   }
   .mi-btn:hover { filter: brightness(1.06); }
@@ -266,8 +361,8 @@
   }
 
   .mi-btn-2 {
-    background: var(--surface-2); color: var(--text);
-    border: 1px solid var(--line-2);
+    background: none; color: var(--text);
+    border: 1px solid var(--metal-dim);
     box-shadow: none;
   }
   .mi-btn-2:hover { background: var(--surface-2); filter: none; }
@@ -297,14 +392,26 @@
   .mi-state-h {
     display: flex; align-items: center; gap: 0.5rem;
     font-size: 0.6875rem; font-weight: 700;
-    letter-spacing: 0.1em; text-transform: uppercase;
+    letter-spacing: 0.14em; text-transform: uppercase;
     color: var(--text-3);
-    margin: 1.5rem 0 0.625rem;
+    margin: 1.75rem 0 0.6875rem;
   }
-  .mi-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-  .mi-dot[data-s="working_now"] { background: var(--ok); }
-  .mi-dot[data-s="on_the_way"]  { background: var(--warn); }
-  .mi-dot[data-s="scheduled"]   { background: var(--text-3); }
+  /* A rule that runs to the edge and fades. Cheap to draw, and it does more
+     for perceived quality than any amount of extra colour. */
+  .mi-state-h::after {
+    content: ''; flex: 1; height: 1px; margin-left: 0.25rem;
+    background: linear-gradient(90deg, var(--metal-dim), transparent);
+  }
+  .mi-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex: none;
+    background: var(--metal); box-shadow: 0 0 0 3px var(--metal-dim);
+  }
+  /* Three states, one hue. Live is solid; anything not yet true is hollow.
+     A red-amber-green legend on a move-in screen borrows the vocabulary of a
+     monitoring dashboard, which is not what a resident is reading. */
+  .mi-dot[data-s="working_now"] { background: var(--metal); box-shadow: 0 0 0 3px var(--metal-dim); }
+  .mi-dot[data-s="on_the_way"]  { background: transparent; box-shadow: inset 0 0 0 1.5px var(--metal); }
+  .mi-dot[data-s="scheduled"]   { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line-2); }
 
   /* ── Badges ─────────────────────────────────────────────────────────────── */
   .mi-badge {
@@ -328,13 +435,16 @@
 
   /* ── Escape hatch — "not your unit?" ────────────────────────────────────── */
   .mi-hatch {
-    margin-top: 1rem; padding: 0.8125rem 0.9375rem;
-    border-radius: 0.75rem;
-    background: var(--surface-sunk);
-    border: 1px solid var(--line);
-    font-size: 0.8125rem; color: var(--text-2);
+    margin-top: 1.125rem; padding: 0.9375rem 0 0;
+    border-radius: 0;
+    background: none;
+    border: none; border-top: 1px solid var(--line);
+    font-size: 0.8125rem; color: var(--text-3); line-height: 1.55;
   }
-  .mi-hatch a { color: var(--accent-hi); font-weight: 600; text-decoration: none; }
+  .mi-hatch a {
+    color: var(--metal-hi); font-weight: 600; text-decoration: none;
+    border-bottom: 1px solid var(--metal-dim); padding-bottom: 1px;
+  }
   .mi-hatch a:hover { text-decoration: underline; }
 
   /* ── Demo bar ───────────────────────────────────────────────────────────
@@ -412,8 +522,9 @@
     transition: border-color .14s, background .14s;
   }
   .mi-person[data-on="true"] {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+    border-color: var(--metal-dim);
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--metal) 6%, var(--surface)), var(--surface));
   }
   .mi-avatar {
     width: 44px; height: 44px; border-radius: 50%;
@@ -446,7 +557,7 @@
     background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
     transition: transform .16s;
   }
-  .mi-switch:checked { background: var(--accent); border-color: var(--accent); }
+  .mi-switch:checked { background: var(--metal); border-color: var(--metal); }
   .mi-switch:checked::after { transform: translateX(20px); }
   .mi-switch:disabled { opacity: 0.5; cursor: default; }
 
@@ -483,8 +594,9 @@
   }
   .mi-prod + .mi-prod { margin-top: 0.625rem; }
   .mi-prod[data-on="true"] {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+    border-color: var(--metal-dim);
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--metal) 5%, var(--surface)), var(--surface));
   }
 
   /* ── Counters line ──────────────────────────────────────────────────────── */
@@ -499,10 +611,18 @@
   /* ── Review / payment ───────────────────────────────────────────────────── */
   .mi-pay-total {
     display: flex; justify-content: space-between; align-items: baseline;
-    padding: 0.875rem 1.0625rem;
-    background: var(--surface-sunk);
-    border-bottom: 1px solid var(--line);
-    font-weight: 700;
+    padding: 1.0625rem 1.0625rem;
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--metal) 7%, var(--surface-sunk)),
+      var(--surface-sunk));
+    border-bottom: 1px solid var(--metal-dim);
+    font-weight: 600;
+  }
+  /* The single number the whole flow has been building toward. */
+  .mi-pay-total > :last-child {
+    font-family: var(--font-display);
+    font-size: 1.875rem; font-weight: 500; letter-spacing: -0.01em;
+    color: var(--metal-hi);
   }
   .mi-card-grid {
     display: grid; grid-template-columns: repeat(3, 1fr);
@@ -555,10 +675,14 @@
   }
 
   /* ── Product row typography ─────────────────────────────────────────────── */
-  .mi-prod-title { font-weight: 600; font-size: 1.0625rem; letter-spacing: -0.015em; }
+  .mi-prod-title {
+    font-family: var(--font-display);
+    font-weight: 500; font-size: 1.25rem; letter-spacing: -0.005em;
+    line-height: 1.2;
+  }
   .mi-prod-price {
-    margin-top: 0.375rem;
-    font-size: 0.9375rem; font-weight: 600; color: var(--text-2);
+    margin-top: 0.4375rem;
+    font-size: 0.9375rem; font-weight: 600; color: var(--metal-hi);
   }
 
   /* ── Select pill — the second affordance beside a toggle ────────────────── */
@@ -603,11 +727,46 @@
   }
   .mi-radio::after {
     content: ''; width: 9px; height: 9px; border-radius: 50%;
-    background: var(--accent-ink); transform: scale(0);
+    background: #1A1408; transform: scale(0);
     transition: transform .14s;
   }
   .mi-opt[data-sel="true"] .mi-radio {
-    border-color: var(--accent-hi); background: var(--accent-hi);
+    border-color: var(--metal); background: var(--metal);
   }
   .mi-opt[data-sel="true"] .mi-radio::after { transform: scale(1); }
+
+  /* ── Folio line ───────────────────────────────────────────────────────────
+     The small tracked line above a headline. A hotel prints your unit and
+     your dates at the top of the folio, small, before it says anything else.
+     It anchors the big serif underneath and it is where the "which unit am I
+     even looking at" question gets answered without a card to hold it. */
+  .mi-folio {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.625rem; font-weight: 600;
+    letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--metal); margin: 0.25rem 0 0;
+  }
+  .mi-folio::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--metal-dim), transparent);
+  }
+
+  /* ── Ruled money line ─────────────────────────────────────────────────────
+     A bill, not a table. Label left, figure right, hairline between, brass
+     on the total. Nothing boxed. */
+  .mi-bill { border-top: 1px solid var(--metal-dim); }
+  .mi-bill-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 1rem; padding: 0.875rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .mi-bill-row > :first-child { flex: 1; min-width: 0; }
+  .mi-bill-amt {
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+    font-weight: 600; font-size: 0.9375rem;
+  }
+  .mi-bill-sub {
+    display: block; font-size: 0.75rem; color: var(--text-3);
+    margin-top: 0.1875rem; letter-spacing: 0;
+  }
 }

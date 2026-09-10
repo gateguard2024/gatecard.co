@@ -8,7 +8,7 @@ import { buildReceipt, type ReceiptLine } from '@/lib/receipt'
 import { computeFee, redeemPromo } from '@/lib/fees'
 import { formatMoveInDate } from '@/lib/dates'
 import { Avatar } from '@/components/move-in-parts'
-import { SCOPE_LABEL } from '@/lib/types'
+import { SCOPE_PHRASE } from '@/lib/types'
 
 /**
  * 05 · Review and payment
@@ -108,9 +108,10 @@ export default function Review() {
 
   // "Maya and Andre", "Maya, Andre and Asha" — an Oxford-free list, because it
   // is read aloud in the head and a trailing comma reads as a missing name.
-  const unlockNames = property.access.feeUnlocks
-    .map(sc => SCOPE_LABEL[sc].toLowerCase())
-    .join(', ')
+  const unlockList = property.access.feeUnlocks.map(sc => SCOPE_PHRASE[sc])
+  const unlockNames = unlockList.length <= 1
+    ? unlockList[0] ?? 'the gate'
+    : `${unlockList.slice(0, -1).join(', ')} and ${unlockList[unlockList.length - 1]}`
 
   const first = holders.map(m => m.firstName)
   const names = first.length <= 1

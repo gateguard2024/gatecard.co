@@ -114,7 +114,7 @@ export default function DemoSite() {
                   <p className="mi-opt-blurb" style={{ margin: '0.125rem 0 0' }}>
                     {st.resident}
                   </p>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--accent-hi)',
+                  <p style={{ fontSize: '0.75rem', color: 'var(--metal-hi)',
                               margin: '0.3125rem 0 0', fontWeight: 550 }}>
                     {st.manager}
                   </p>
