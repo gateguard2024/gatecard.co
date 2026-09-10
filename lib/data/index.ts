@@ -30,9 +30,35 @@ export async function loadMoveInContext(
 ): Promise<MoveInContext | null> {
   if (!configured.supabase()) return mock(slug)
 
-  // Imported lazily so a build without Supabase env never pulls the client in.
-  const { fetchMoveInContext } = await import('./supabase-source')
-  const ctx = await fetchMoveInContext(slug, residentId)
+  let ctx: MoveInContext | null = null
+
+  try {
+    // Imported lazily so a build without Supabase env never pulls the client in.
+    const { fetchMoveInContext } = await import('./supabase-source')
+    ctx = await fetchMoveInContext(slug, residentId)
+  } catch (err) {
+    // A THROW is different from a miss, and the difference matters.
+    //
+    // A miss means the row isn't there. A throw means the query itself failed —
+    // most often because the connected project has never had the move-in
+    // migrations applied, so a column in the select doesn't exist. That is
+    // exactly the state a demo deployment lands in when it inherits Supabase
+    // credentials from an older site.
+    //
+    // For a demo fixture, fall back: a 500 on the screen you are presenting is
+    // the worst outcome available. For a real property, rethrow — a database
+    // outage must page someone, not quietly serve invented residents to a
+    // person who is actually moving in.
+    if (DEMO_SLUGS.has(slug)) {
+      console.error(
+        `[data] Supabase query failed for demo fixture "${slug}". Serving mock ` +
+        `data so the demo stays usable. Set DEMO_MODE=1 on this deployment to ` +
+        `skip Supabase entirely. Cause:`, err,
+      )
+      return mock(slug)
+    }
+    throw err
+  }
 
   if (!ctx) {
     if (DEMO_SLUGS.has(slug)) {
