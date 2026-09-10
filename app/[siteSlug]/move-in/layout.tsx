@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { loadMoveInContext } from '@/lib/data'
 import { MoveInProvider } from './state'
+import { SummaryRail } from '@/components/summary-rail'
 
 /**
  * Loads the move-in context once, on the server, and holds it for all six
@@ -13,5 +14,14 @@ export default async function MoveInLayout({
   const { siteSlug } = await params
   const ctx = await loadMoveInContext(siteSlug)
   if (!ctx) notFound()
-  return <MoveInProvider ctx={ctx}>{children}</MoveInProvider>
+  // One column on a phone, two on a laptop. The rail is desktop-only and
+  // purely reflective — see components/summary-rail.tsx.
+  return (
+    <MoveInProvider ctx={ctx}>
+      <div className="mi-split">
+        <div className="mi-split-flow">{children}</div>
+        <SummaryRail />
+      </div>
+    </MoveInProvider>
+  )
 }

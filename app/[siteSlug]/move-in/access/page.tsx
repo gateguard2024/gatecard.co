@@ -98,7 +98,7 @@ export default function YourAccess() {
                           display: 'flex', gap: '0.625rem', alignItems: 'center' }}>
               <span className="mi-dot" data-s="working_now" />
               <span style={{ flex: 1, fontSize: '0.875rem' }}>{SCOPE_LABEL[sc]}</span>
-              <span style={{ fontSize: '0.6875rem', color: 'var(--ok)', fontWeight: 700,
+              <span style={{ fontSize: '0.6875rem', color: 'var(--metal-hi)', fontWeight: 700,
                              textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Always
               </span>

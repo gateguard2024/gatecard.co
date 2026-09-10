@@ -291,9 +291,14 @@
     padding: 0.1875rem 0.5rem; border-radius: 0.5rem;
     background: var(--surface-sunk); color: var(--text-2);
   }
+  /* "Included" was the last green on the page. Against brass it read as a
+     leftover from a different design rather than a signal. Included is the
+     absence of a charge, so it is set as quiet type, not as a badge. */
   .mi-price[data-free="true"] {
-    background: color-mix(in srgb, var(--ok) 12%, transparent);
-    color: var(--ok);
+    background: none;
+    border-color: transparent;
+    color: var(--text-3);
+    font-weight: 600;
   }
 
   /* ── Fields ─────────────────────────────────────────────────────────────── */
@@ -321,6 +326,10 @@
     gap: 1rem; padding: 0.8125rem 0;
   }
   .mi-fact + .mi-fact { border-top: 1px solid var(--line); }
+  /* .mi-fact sets `padding: x 0` and lands after .mi-card-p in the cascade,
+     so a row that is both loses its horizontal padding and the value ends up
+     flush against the card edge. Restore it explicitly. */
+  .mi-card-p.mi-fact { padding-left: 1.0625rem; padding-right: 1.0625rem; }
   .mi-fact-k {
     font-size: 0.6875rem; color: var(--text-3); flex: none;
     letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600;
@@ -768,5 +777,131 @@
   .mi-bill-sub {
     display: block; font-size: 0.75rem; color: var(--text-3);
     margin-top: 0.1875rem; letter-spacing: 0;
+  }
+
+  /* ── Option titles ────────────────────────────────────────────────────────
+     Were sans-bold while the product card beside them was serif. Adjacent
+     items in the same list set in two different faces reads as two design
+     systems colliding, which is exactly what it was. */
+  .mi-opt-title {
+    font-family: var(--font-display);
+    font-weight: 500; font-size: 1.125rem; letter-spacing: -0.005em;
+    line-height: 1.25;
+  }
+
+  /* One success green, at one size, for the one thing that is genuinely
+     already yours. Everything else that was green or amber is now brass. */
+  .mi-badge[data-tone="ok"], .mi-badge[data-tone="req"] {
+    background: none;
+    border: 1px solid var(--metal-dim);
+    color: var(--metal-hi);
+  }
+
+  /* ══ DESKTOP ══════════════════════════════════════════════════════════════
+     Below this width the flow is one column, which is right: the resident is
+     outdoors holding keys. Above it, a 440px column centred on a 2000px screen
+     is not a design — it is a phone page nobody finished. */
+  @media (min-width: 900px) {
+    .mi-shell {
+      max-width: 1040px;
+      padding: 0 2.5rem;
+    }
+    .mi-head {
+      padding-left: 0; padding-right: 0;
+      padding-top: 2rem; padding-bottom: 1.5rem;
+      background: none;
+    }
+    .mi-head-mark { width: 46px; height: 46px; }
+    .mi-head-name { font-size: 1.5rem; }
+
+    .mi-split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 3.5rem;
+      align-items: start;
+      flex: 1;
+    }
+    .mi-split-flow { min-width: 0; }
+
+    .mi-rail, .mi-rail-row { padding-left: 0; padding-right: 0; }
+    .mi-rail-label { padding-left: 0; padding-right: 0; }
+    .mi-body { padding-left: 0; padding-right: 0; padding-bottom: 2rem; }
+    .mi-h1 { font-size: 2.75rem; }
+
+    /* The CTA stops floating over the form. There is room for it to simply
+       sit at the end of the flow, which is what a page with space does. */
+    .mi-foot {
+      position: static;
+      padding: 1.5rem 0 0;
+      background: none;
+      backdrop-filter: none; -webkit-backdrop-filter: none;
+      border-top: 1px solid var(--metal-dim);
+      max-width: 420px;
+    }
+    .mi-stripe { text-align: left; padding-left: 0; }
+    .mi-gg { text-align: left; padding-left: 0; }
+    /* A 46em measure. At 800px the fob blurb runs nearly a hundred
+       characters — technically readable, and nothing anyone would set on
+       purpose. The column is wide; the text inside it is not. */
+    .mi-body > * { max-width: 46em; }
+    .mi-h1, .mi-lede { max-width: 22em; }
+  }
+
+  /* ── The rail ─────────────────────────────────────────────────────────── */
+  .mi-sum { display: none; }
+
+  @media (min-width: 900px) {
+    .mi-sum { display: block; position: sticky; top: 2rem; }
+  }
+
+  .mi-sum-card {
+    border: 1px solid var(--line);
+    border-top: 2px solid var(--metal);
+    background: linear-gradient(180deg,
+      color-mix(in srgb, #FFFFFF 3%, var(--surface)), var(--surface));
+    padding: 1.375rem 1.375rem 1.125rem;
+    box-shadow: var(--shadow-card);
+  }
+  .mi-sum-unit {
+    font-family: var(--font-display); font-variant-numeric: lining-nums;
+    font-size: 1.75rem; font-weight: 500; line-height: 1.1;
+    margin-top: 0.5rem;
+  }
+  .mi-sum-sub { font-size: 0.75rem; color: var(--text-3); margin-top: 0.25rem; }
+  .mi-sum-h {
+    font-size: 0.5625rem; font-weight: 700; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--text-3);
+    margin: 1.375rem 0 0.5rem;
+    padding-bottom: 0.375rem; border-bottom: 1px solid var(--metal-dim);
+  }
+  .mi-sum-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 0.75rem; padding: 0.4375rem 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.8125rem;
+  }
+  .mi-sum-row > :first-child { min-width: 0; }
+  /* The qualifier never wraps — a "With the / fee" split reads as two facts. */
+  .mi-sum-row .mi-sum-note { white-space: nowrap; flex: none; }
+  .mi-sum-note { font-size: 0.6875rem; color: var(--text-3); }
+  .mi-sum-amt {
+    font-variant-numeric: lining-nums tabular-nums;
+    font-weight: 600; white-space: nowrap;
+  }
+  .mi-sum-empty { font-size: 0.8125rem; color: var(--text-3); padding: 0.375rem 0; }
+  .mi-sum-total {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 0.75rem; margin-top: 1.375rem; padding-top: 0.875rem;
+    border-top: 1px solid var(--metal-dim);
+    font-size: 0.8125rem;
+  }
+  .mi-sum-total b {
+    font-family: var(--font-display);
+    font-variant-numeric: lining-nums tabular-nums;
+    font-size: 1.625rem; font-weight: 500; color: var(--metal-hi);
+  }
+  .mi-sum-foot {
+    font-size: 0.6875rem; color: var(--text-3); margin: 0.875rem 0 0;
+    line-height: 1.5;
   }
 }
